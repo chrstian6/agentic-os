@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "_comment": [
+    "Router tuning. `always_by_agent` lists skills an agent loads on EVERY task,",
+    "trigger or not — postures rather than techniques.",
+    "",
+    "A posture that depends on wording is missing from exactly the task phrased",
+    "unusually, which is the one most likely to need it. Measured: design-taste",
+    "loaded for 'build a settings page' and not for 'add a tooltip to the button'.",
+    "",
+    "These do NOT consume the depth's skill budget — they are the floor, and a",
+    "busy task is when they would otherwise be crowded out.",
+    "",
+    "Ships EMPTY on purpose: which postures bind is a project's ruling about its",
+    "own work, not something a distribution should assume. Names are as the",
+    "registry spells them ('builder/design-taste', 'project/lazy'); one that",
+    "resolves to nothing installed is skipped, not fatal. config/ survives",
+    "updates, so your entries persist.",
+    "",
+    "`project_skills` (default true): also route the project's own .claude/skills.",
+    "Set false to route the OS library alone; the project skills stay on disk."
+  ],
+  "project_skills": true,
+  "always_by_agent": {}
+}

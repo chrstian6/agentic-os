@@ -1,0 +1,7 @@
+# runtime state: databases, the current prompt, caches. Created by the installer.
+payload/state/
+# personal test notes
+MANUAL.md
+__pycache__/
+*.pyc
+.DS_Store

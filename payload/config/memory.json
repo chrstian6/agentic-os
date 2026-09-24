@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "_comment": [
+    "Where durable memory lives. Agentic OS owns routing and learning; the",
+    "Obsidian vault owns memory. This file is the only place that knows the",
+    "path, so moving the vault is a one-line change rather than a grep.",
+    "",
+    "Ships INERT: vault_root empty means aos vault reports linked:false and",
+    "the runtime behaves exactly as it did before. Set vault_root and",
+    "project_folder to switch it on. config/ is preserved across updates, so",
+    "your edit survives."
+  ],
+  "vault_root": "",
+  "project_folder": "",
+  "read": {
+    "_comment": "Folders indexed for discovery, in descending authority. A Decision outranks a Gotcha, which outranks a Learning, because that is the order in which they bind.",
+    "folders": [
+      "Decisions",
+      "Gotchas",
+      "Agent Learnings",
+      "Planning"
+    ],
+    "max_notes": 2000
+  },
+  "write": {
+    "_comment": "Where `aos learn observe` mirrors an observation. Filename is <date>-<slug>.md, matching the vault's own convention.",
+    "folder": "Agent Learnings",
+    "enabled": false
+  }
+}
