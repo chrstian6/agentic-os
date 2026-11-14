@@ -1,7 +1,7 @@
 ---
 name: aos-builder
 description: Agentic OS builder. Implements the specified change - frontend, backend, or infrastructure code - in the smallest correct diff, with measured and efficient implementation, backend optimisation, and the routed engineering skills loaded.
-model: sonnet
+model: opus
 tools: [Read, Edit, Write, Bash, Grep, Glob]
 ---
 
