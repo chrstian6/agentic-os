@@ -499,3 +499,11 @@ def test_repeated_updates_do_not_grow_claude_md():
         assert open(path).read() == before, "each update added blank lines to CLAUDE.md"
     finally:
         rm(d)
+
+
+def test_plugin_wired_hooks_are_not_written_twice():
+    # 1.8.5: an enabled agentic-os plugin already runs the hooks.
+    assert installer.plugin_wired({"enabledPlugins": {"agentic-os@local": True}})
+    assert not installer.plugin_wired({"enabledPlugins": {"agentic-os@local": False}})
+    assert not installer.plugin_wired({"enabledPlugins": {"other@x": True}})
+    assert not installer.plugin_wired({}) and not installer.plugin_wired([])

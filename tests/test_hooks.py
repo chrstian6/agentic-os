@@ -369,3 +369,21 @@ def test_the_injected_block_tells_the_agent_it_may_choose():
     for cmd in ("aos skills list", "aos skills search", "aos skills show"):
         assert cmd in ctx, "the block never names `%s`" % cmd
     assert "stays out of context" not in ctx, "the closed-set wording is back"
+
+
+def test_global_install_stands_down_when_the_project_has_its_own():
+    # 1.8.5: two installs must not both answer one prompt.
+    proj = tmpdir()
+    try:
+        os.makedirs(os.path.join(proj, ".claude", "agentic-os", "hooks"))
+        env = {k: v for k, v in os.environ.items() if k != "AOS_HOME"}
+        env["CLAUDE_PROJECT_DIR"] = proj
+        cmd = [sys.executable, os.path.join(HOOKS, "user_prompt_submit.py")]
+        body = json.dumps({"prompt": "add pagination to the users endpoint"})
+        quiet = subprocess.run(cmd, input=body, capture_output=True, text=True, env=env)
+        assert quiet.returncode == 0 and quiet.stdout.strip() == "", quiet.stdout
+        chosen = subprocess.run(cmd, input=body, capture_output=True, text=True,
+                                env=dict(env, AOS_HOME=PAYLOAD))
+        assert "[Agentic OS]" in chosen.stdout
+    finally:
+        rm(proj)

@@ -23,6 +23,16 @@ PAYLOAD_FILES = ["VERSION", "CLAUDE.block.md"]
 HOOK_MARKER = ".claude/agentic-os/hooks"
 
 
+def plugin_wired(settings):
+    """True when an enabled agentic-os plugin already runs the hooks.
+
+    Writing them into settings.json as well makes every hook fire twice.
+    """
+    plugins = settings.get("enabledPlugins") if isinstance(settings, dict) else None
+    return isinstance(plugins, dict) and any(
+        k.split("@")[0] == "agentic-os" and v is True for k, v in plugins.items())
+
+
 def has_hook_marker(text):
     """Is one of our hook commands in this text?
 
@@ -301,6 +311,9 @@ class Install(object):
                 log("  settings.json is not valid JSON - hooks not installed", self.quiet)
                 return []
             shutil.copy2(path, path + ".aos-backup")
+        if plugin_wired(data):
+            log("  hooks already wired by the agentic-os plugin - settings.json left alone", self.quiet)
+            return []
         hooks = data.setdefault("hooks", {})
         wanted = [
             ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre_tool_use.py"),
@@ -526,8 +539,9 @@ class Install(object):
         hooks_ok = False
         try:
             with open(self.settings_path(), encoding="utf-8") as fh:
-                hooks_ok = has_hook_marker(fh.read())
-        except (IOError, OSError):
+                text = fh.read()
+                hooks_ok = has_hook_marker(text) or plugin_wired(json.loads(text))
+        except (IOError, OSError, ValueError):
             pass
         chk("hooks wired", hooks_ok, self.settings_path())
         md = self.claude_md_path()

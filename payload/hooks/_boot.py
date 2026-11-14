@@ -4,8 +4,26 @@ import os
 import sys
 
 
+def shadowed(root):
+    """A project with its own install runs its own hooks; this one must stand down.
+
+    Measured: a global install and a project install both fired, so every prompt carried
+    two plans and every tool call paid for two hook sets.
+    """
+    proj = os.environ.get("CLAUDE_PROJECT_DIR")
+    if not proj:
+        return False
+    local = os.path.join(proj, ".claude", "agentic-os")
+    return os.path.isdir(os.path.join(local, "hooks")) and \
+        os.path.realpath(local) != os.path.realpath(root)
+
+
 def load():
-    root = os.environ.get("AOS_HOME") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    explicit = os.environ.get("AOS_HOME")
+    root = explicit or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # An explicit AOS_HOME is the caller choosing this installation; never stand down then.
+    if not explicit and shadowed(root):
+        sys.exit(0)
     if root not in sys.path:
         sys.path.insert(0, root)
     os.environ.setdefault("AOS_HOME", root)
