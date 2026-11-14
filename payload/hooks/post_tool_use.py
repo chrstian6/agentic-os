@@ -22,7 +22,7 @@ def main():
         rec["path"] = str(path)[-120:]
     if data.get("tool_name") == "Bash":
         rec["cmd"] = str(ti.get("command", ""))[:160]
-    if data.get("tool_name") == "Task":
+    if _boot.is_delegation(data.get("tool_name")):
         rec["agent"] = ti.get("subagent_type")
     d = os.path.join(root, "state")
     os.makedirs(d, exist_ok=True)

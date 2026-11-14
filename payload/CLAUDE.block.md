@@ -12,12 +12,17 @@ which agents to delegate to, the model tier, and the routed skills themselves. F
 block - it is the plan for the turn. Treat its depth as a floor: raise it if you see risk it
 missed, never lower a risk-driven floor.
 
-You can run `python3 {{AOS_HOME}}/bin/aos plan "<the task>"` by hand for a sub-task, a
+You can run `{{AOS_HOME}}/bin/aos plan "<the task>"` by hand for a sub-task, a
 mid-turn re-plan, or a task whose real shape differs from the prompt - but nothing requires
 it. Automatic injection is configured in `{{AOS_HOME}}/config/auto.json`.
 
 Level 1 work (rename, typo, one-line change, copy edit) is done directly. Do not delegate
 it — the delegation costs more than it returns.
+
+Agent mode (`aos mode single|multi`, in `config/auto.json`): single means the main thread
+does the work itself; multi dispatches builders. In both, a turn classified high/critical
+risk delegates and its first direct edit is intercepted. Brief builders with
+`aos brief "<MISSION>" --agent builder` atop the prompt.
 
 ## Invariants
 
@@ -57,5 +62,5 @@ delegation — artifacts, not transcripts.
 
 ## Skills
 
-51 skills live in `{{AOS_HOME}}/skills`. They are *installed*, not loaded: the router picks
+58 skills live in `{{AOS_HOME}}/skills`. They are *installed*, not loaded: the router picks
 the minimum sufficient set per task. Read the files it names; do not read the whole library.

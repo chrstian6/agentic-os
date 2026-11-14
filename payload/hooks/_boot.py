@@ -12,6 +12,11 @@ def load():
     return root
 
 
+def is_delegation(tool_name):
+    """The subagent tool is "Agent" now, "Task" in older Claude Code."""
+    return tool_name in ("Agent", "Task")
+
+
 def payload():
     try:
         raw = sys.stdin.read()

@@ -28,6 +28,18 @@ def _load(name, cache={}):
     return cache[name]
 
 
+def _matches(phrase, text, cache={}):
+    """True when `phrase` occurs in `text` starting at a word boundary.
+
+    Signals are stems ("optimi", "concurren"), so the end stays open. The start must
+    not: plain substring matching let "ui" fire on "build", "form" on "platform" and
+    "test" on "latest", which skewed scores toward the wrong dimensions.
+    """
+    if phrase not in cache:
+        cache[phrase] = re.compile(r"(?<![a-z0-9])" + re.escape(phrase))
+    return cache[phrase].search(text) is not None
+
+
 def difficulty(task_text, file_count=0, policies=(), cfg=None):
     cfg = cfg or _load("classifier.json")
     text = util.norm(task_text)
@@ -36,7 +48,7 @@ def difficulty(task_text, file_count=0, policies=(), cfg=None):
     for dim, signals in cfg["signals"].items():
         raw = 0
         for phrase, points in signals.items():
-            if phrase in text:
+            if _matches(phrase, text):
                 raw += points
                 hits.append("%s:%s(%+d)" % (dim, phrase, points))
         weight = cfg["dimensions"].get(dim, {}).get("weight", 1.0)
@@ -55,6 +67,30 @@ def difficulty(task_text, file_count=0, policies=(), cfg=None):
             {k: round(v, 2) for k, v in scores.items()}, "signals": hits}
 
 
+def _risk_hit(pat, text, cache={}):
+    """A risk pattern as a word, with a plural/past tail, unless it is a long stem.
+
+    Substring matching made "auth" fire on "author", "iam" on "william" and "charge"
+    on "charger", so plain copy edits came back elevated and taught everyone to ignore
+    the risk line. Patterns of 7+ characters stay open stems ("authoriz", "session").
+    """
+    if pat not in cache:
+        p = pat.strip()
+        if len(p) >= 7 or not p[-1:].isalnum():
+            rx = re.escape(p)
+        else:
+            # Derived forms: settle->settlement, delete->deletion (the e drops), crypto->cryptography.
+            # A dropped e must be replaced by a suffix, or "stripe" fires on "strip", "wipe" on "wip".
+            if p.endswith("e"):
+                tail = r"(?:e(?:s|d|ment|ments)?|ing|ion|ions)"
+                rx = re.escape(p[:-1]) + tail
+            else:
+                rx = re.escape(p) + r"(?:s|es|d|ed|ing|ion|ions|graphy|graphic)?"
+            rx += r"(?![a-z0-9])"
+        cache[pat] = re.compile(r"(?<![a-z0-9])" + rx)
+    return cache[pat].search(text) is not None
+
+
 def risk(task_text, cfg=None):
     cfg = cfg or _load("risk.json")
     text = util.norm(task_text)
@@ -62,7 +98,7 @@ def risk(task_text, cfg=None):
     factors = []
     for name, spec in cfg["factors"].items():
         for pat in spec["patterns"]:
-            if pat in text:
+            if _risk_hit(pat, text):
                 points += spec["points"]
                 factors.append("%s:%s" % (name, pat.strip()))
                 break

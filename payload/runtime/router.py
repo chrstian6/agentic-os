@@ -64,9 +64,31 @@ def _trigger_hit(trig, text):
     return re.search(r"(?<![a-z0-9])%s%s" % (re.escape(t), tail), text) is not None
 
 
+UI_DOMAINS = {"frontend", "visual", "ui"}
+UI_NOUNS = ("ui", "page", "screen", "component", "layout", "css", "style", "button", "form",
+            "modal", "dialog", "dashboard", "frontend", "visual", "view", "navbar", "sidebar",
+            "landing", "theme", "font", "color", "colour", "responsive", "animation", "hero")
+BACKEND_NOUNS = ("api", "endpoint", "rpc", "service", "schema", "migration", "migrate",
+                 "database", "query", "worker", "job", "queue", "server", "backend", "sql",
+                 "table", "ledger", "webhook", "cron", "settlement", "payout")
+
+
+def _backend_only(text):
+    """The task names backend things and nothing a user sees.
+
+    Measured: "redesign the settlement service, migrate payouts to a new ledger schema"
+    routed design-taste and existing-project-redesign on the verb alone, which pulled
+    accessibility, anti-ai-slop and responsive-design in as dependencies, and put a
+    design critic in the check phase of a backend change.
+    """
+    return any(_trigger_hit(w, text) for w in BACKEND_NOUNS) and \
+        not any(_trigger_hit(w, text) for w in UI_NOUNS)
+
+
 def score(task_text, agent=None, reg=None, adapter=None, policies=()):
     reg = reg or load_registry()
     text = util.norm(task_text)
+    backend_only = _backend_only(text)
     scores = {}
     why = {}
     for name, meta in reg.get("skills", {}).items():
@@ -83,10 +105,21 @@ def score(task_text, agent=None, reg=None, adapter=None, policies=()):
                 s += weight
                 reasons.append("trigger:%s" % trig.lower())
         for dom in meta.get("domains", []):
-            if dom.lower() in text:
+            if _trigger_hit(dom, text):
                 s += 1.5
                 reasons.append("domain:%s" % dom)
-        if adapter:
+        # A project skill's triggers are guessed from its prose ("project", "system",
+        # "loop"), so one stray common word must not route it. Require two distinct
+        # hits, or its own name in the task.
+        if meta.get("source") == "project" and s > 0:
+            own = name.split("/", 1)[-1].replace("-", " ")
+            hits = len([r for r in reasons if r.startswith("trigger:")])
+            if hits < 2 and own not in text.replace("-", " "):
+                s, reasons = 0.0, []
+        # The stack only breaks ties between skills the TASK already matched. Measured:
+        # a Next.js adapter alone scored frontend-engineering 3.3 on "fix the login bug
+        # in the api", past min_score, with no word of the task about UI.
+        if adapter and s > 0:
             for key, domains in STACK_DOMAIN_HINTS.items():
                 if adapter.get(key) and set(domains) & set(d.lower() for d in meta.get("domains", [])):
                     s += 0.5
@@ -95,6 +128,9 @@ def score(task_text, agent=None, reg=None, adapter=None, policies=()):
                 if fw and fw.lower() in [t.lower() for t in meta.get("triggers", [])]:
                     s += 1.0
                     reasons.append("stack:%s" % fw)
+        doms = set(d.lower() for d in meta.get("domains", []))
+        if backend_only and doms & UI_DOMAINS and "backend" not in doms:
+            s, reasons = 0.0, []
         if s > 0:
             s += meta.get("priority", 5) / 10.0
         scores[name] = s

@@ -6,6 +6,7 @@ stops unrelated work.
 import json
 import os
 import sqlite3
+import time
 
 from . import paths, util
 
@@ -187,6 +188,14 @@ def listing(con, status=None):
         d["blockers"] = [b["id"] for b in blockers(con, r["id"])]
         out.append(d)
     return out
+
+
+def stale(con, days=7):
+    """Non-terminal tasks not updated for more than `days` days (updated_at is UTC)."""
+    cutoff = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - days * 86400))
+    rows = con.execute("SELECT * FROM tasks WHERE status NOT IN ('COMPLETED','CANCELLED')"
+                       " AND updated_at < ? ORDER BY id", (cutoff,))
+    return [dict(r) for r in rows]
 
 
 def stats(con):

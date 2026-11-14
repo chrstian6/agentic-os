@@ -5,7 +5,7 @@
 Install it into a project, or into your whole home directory. From then on, every prompt you
 type is classified before Claude starts working: how hard it is, how risky it is, which
 workflow it needs, which specialist agents should handle it, which model tier fits, and which
-of 51 skills belong in context. Dangerous shell commands are intercepted on the way out. There
+of 58 skills belong in context. Dangerous shell commands are intercepted on the way out. There
 is nothing to call and nothing to remember: it runs from Claude Code's own hooks.
 
 ```text
@@ -69,7 +69,7 @@ This writes the following:
 
 | Path | What |
 |---|---|
-| `~/.claude/agentic-os/` | runtime, 51 skills, config, hooks, state, and its own copy of the installer |
+| `~/.claude/agentic-os/` | runtime, 58 skills, config, hooks, state, and its own copy of the installer |
 | `~/.claude/agents/aos-*.md` | 9 subagents |
 | `~/.claude/skills/agentic-os/SKILL.md` | the entry skill |
 | `~/.claude/CLAUDE.md` | a marked block appended (backup: `CLAUDE.md.aos-backup`) |
@@ -134,7 +134,7 @@ You can still plan by hand, for a sub-task or to re-plan in the middle of a turn
 |---|---|---|
 | Constitution | `payload/CLAUDE.block.md` | global invariants, merged into the project's `CLAUDE.md` |
 | Agents | `payload/agents/*.md` | 9 native Claude Code subagents with real operating instructions |
-| Skills | `payload/skills/**/SKILL.md` | 51 skills. Installed doesn't mean loaded: the router picks the minimum set per task |
+| Skills | `payload/skills/**/SKILL.md` | 58 skills. Installed doesn't mean loaded: the router picks the minimum set per task |
 | Runtime | `payload/runtime/*.py` | registry, router, classifier, model routing, queue, workflow, artifacts, guards, learning, metrics |
 | Config | `payload/config/*.json` | classifier weights, risk factors, guard rules, model tiers, workflow depths, tool policy |
 | Hooks | `payload/hooks/*.py` | UserPromptSubmit auto-plan, PreToolUse guard, PostToolUse log, Stop measurement, SessionStart context |
@@ -180,7 +180,7 @@ prose. A result that says `ok` while reporting failing tests or remaining work i
 
 ## The skills
 
-There are 51 skills, grouped by the agent that uses them. Installing a skill doesn't load it.
+There are 58 skills, grouped by the agent that uses them. Installing a skill doesn't load it.
 The router scores the skills against each task and inlines only the minimum set needed, within
 a character budget, so context stays small.
 
@@ -189,11 +189,11 @@ a character budget, so context stays small.
 | shared (8) | artifact-handoff, context-minimization, evidence, failure-recovery, safe-tool-use, uncertainty, unlazy, verification |
 | analyst (3) | codebase-analysis, requirements-analysis, specification |
 | researcher (4) | documentation-analysis, source-evaluation, technical-research, uncertainty-reduction |
-| builder (13) | accessibility, anti-ai-slop, backend-engineering, component-architecture, design-taste, existing-project-redesign, frontend-engineering, frontend-testing, interaction-design, motion, performance, responsive-design, security |
+| builder (17) | accessibility, anti-ai-slop, backend-engineering, component-architecture, design-taste, existing-project-redesign, frontend-engineering, frontend-testing, hallmark, interaction-design, motion, motion-graphics-library, performance, product-svg-artist, remotion-product-demo, responsive-design, security |
 | design-critic (1) | visual-critique |
 | tester (9) | e2e-testing, edge-case-analysis, failure-analysis, integration-testing, regression-testing, test-design, test-driven-development, unit-testing, verification |
 | repairer (5) | failure-analysis, regression-repair, root-cause-analysis, systematic-debugging, verification |
-| reviewer (6) | adversarial-review, code-review, completion-audit, quality-review, requirements-review, security-review |
+| reviewer (7) | adversarial-review, code-review, completion-audit, quality-review, requirements-review, scale-review, security-review |
 | orchestrator (2) | decomposition, delegation-economics |
 
 Your project's own skills in `.claude/skills` are discovered too. To add your own, see

@@ -12,7 +12,7 @@ Task tool using the agent name.
 | `aos-design-critic` | BALANCED | UI that works but looks templated |
 | `aos-tester` | BALANCED | test design and execution, real output |
 | `aos-repairer` | BALANCED | a failing test or regression that survived the first fix |
-| `aos-reviewer` | DEEP | adversarial final gate: correctness, coverage, security, completion |
+| `aos-reviewer` | DEEP | adversarial final gate: correctness, coverage, security, scale, completion |
 | `aos-router` | FAST | cheap classification and delegation decision |
 
 Every agent definition contains role, mission, method, boundaries, decision rules, an output

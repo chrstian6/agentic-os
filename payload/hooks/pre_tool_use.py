@@ -16,6 +16,7 @@ WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 
 CONTRACT = """TASK:        <what you are about to do>      AGENT: aos-builder
 MISSION:     <one sentence - what done looks like>
+SKILLS:      <paste the output of: .claude/agentic-os/bin/aos brief "<MISSION>" --agent builder>
 CONTEXT:     <the paths you were about to edit, and why>
 SUCCESS:     <numbered, individually checkable>
 FORBIDDEN:   test files you did not write; deploy, migrate, push, install, delete;
@@ -65,7 +66,7 @@ def _delegated_already(root, started):
                     rec = json.loads(line)
                 except ValueError:
                     continue
-                if rec.get("at", 0) >= started and rec.get("tool") == "Task":
+                if rec.get("at", 0) >= started and _boot.is_delegation(rec.get("tool")):
                     return True
     except (IOError, OSError):
         pass
@@ -89,16 +90,21 @@ def delegation_check(root, tool, tool_input=None):
     cfg = _cfg(root)
     mode = cfg.get("enforce_mode", "ask")
     floor = cfg.get("enforce_delegation_from_level", 4)
-    if mode == "off" or not cfg.get("enabled", True):
+    if mode == "off" or not cfg.get("enabled", True) :
         return None
     turn = _turn(root)
     if not turn:
+        return None
+    # Single mode: the main thread does ordinary work itself; only a turn classified
+    # high/critical keeps the delegation check (workflow.plan delegates the same turns).
+    risky = turn.get("risk") in ("high", "critical")
+    if cfg.get("agent_mode") == "single" and not risky:
         return None
     sig = _signature(tool, tool_input)
     already = turn.get("delegation_enforced")
     if already and already != sig:
         return None                      # a different call, later in the same turn
-    if int(turn.get("level", 1)) < int(floor):
+    if int(turn.get("level", 1)) < int(floor) and not (risky and cfg.get("agent_mode") == "single"):
         return None
     if not already and _delegated_already(root, turn.get("started", 0)):
         return None

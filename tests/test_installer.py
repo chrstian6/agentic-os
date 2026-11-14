@@ -249,7 +249,7 @@ def test_status_reports_only_real_state():
         assert inst.status() == {"installed": False, "project": os.path.abspath(d)}
         inst.install()
         st = inst.status()
-        assert st["installed"] and st["skills_installed"] == 51
+        assert st["installed"] and st["skills_installed"] == 58
         assert len(st["agents"]) == 9
         assert st["queue"]["total"] == 0
         assert st["learning"] == {"champion_policies": 0, "challengers": 0, "observations": 0}
@@ -469,5 +469,33 @@ def test_registry_build_rebuilds_the_project_library_too():
         got = json.loads(out.stdout)
         assert got["built"] > 0 and got["project"] > 0, got
         assert "project/late-skill" in indexed(), "rebuild did not pick up the new skill"
+    finally:
+        rm(d)
+
+
+def test_deployed_installer_finds_the_distribution():
+    """The copy inside a project has no payload; version/update/drift must still work."""
+    import subprocess
+    d = project()
+    try:
+        installer.Install(d, quiet=True).install()
+        cli = os.path.join(d, ".claude", "agentic-os", "bin", "agentic-os")
+        for cmd in ("version", "drift", "update", "doctor"):
+            r = subprocess.run([cli, cmd], capture_output=True, text=True)
+            assert r.returncode == 0, "%s failed: %s%s" % (cmd, r.stdout, r.stderr)
+        assert installer.Install(d, quiet=True).doctor()["ok"] is True
+    finally:
+        rm(d)
+
+
+def test_repeated_updates_do_not_grow_claude_md():
+    d = project()
+    try:
+        installer.Install(d, quiet=True).install()
+        path = installer.Install(d, quiet=True).claude_md_path()
+        before = open(path).read()
+        for _ in range(3):
+            installer.Install(d, quiet=True).install(update=True)
+        assert open(path).read() == before, "each update added blank lines to CLAUDE.md"
     finally:
         rm(d)

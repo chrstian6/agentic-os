@@ -52,6 +52,9 @@ model tiers, routed skills), the project adapter, and any prior artifacts.
 - Level 4-5 or risk >= high: add researcher for unknowns and a second reviewer pass.
 - Parallelise only tasks with no shared files and no dependency edge.
 - If two agents would touch the same file, serialise them. Merge conflicts are your fault.
+- Sliced project: merge each finished slice locally into one feature branch after its
+  task-level gate; never open a PR per slice. Open ONE PR only after every slice is in and
+  the full gate is green.
 
 # Output contract
 

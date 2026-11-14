@@ -7,6 +7,92 @@ runs. It does not claim to execute agents on its own or in the background.
 from . import adapter, artifacts, classify, models, paths, router, util
 
 TRIVIAL_MAX_LEVEL = 1
+MODES = ("multi", "single")
+
+
+def _auto():
+    try:
+        return util.load_json(paths.config("auto.json")) or {}
+    except Exception:
+        return {}
+
+
+def agent_mode():
+    """'multi' delegates to role agents; 'single' does every stage in the main thread."""
+    m = _auto().get("agent_mode", "multi")
+    return m if m in MODES else "multi"
+
+
+def fan_out(level):
+    """Heavy task, either mode: slice it and run one builder per independent slice."""
+    return level >= int(_auto().get("fanout_from_level", 4))
+
+
+def max_parallel():
+    return max(1, int(_auto().get("max_parallel", 3)))
+
+
+UI_DOMAINS = {"frontend", "visual", "ui"}
+
+
+def phases(stages, level):
+    """Group role stages into rounds, so a multi-agent run is 2-3 waits, not 5-8.
+
+    Measured before this: a level-3 backend task planned analyst, builder, tester,
+    repairer, reviewer as five serial dispatches - a repairer before anything failed.
+    Now: prepare (level 4+ only, parallel) -> build -> check (tester and reviewer in
+    parallel) -> repair only when a check fails. The main thread is the orchestrator,
+    so it is never dispatched; the design critic only joins work that touches UI, and
+    the researcher only when the task matched a research skill.
+    """
+    full = router.load_registry()
+    reg = full.get("skills", {})
+    always = set(router.always_for("builder", full))
+    by = {s["agent"]: s for s in stages}
+    def ui_only(name):
+        doms = set(d.lower() for d in reg.get(name, {}).get("domains", []))
+        return bool(doms & UI_DOMAINS) and "backend" not in doms and name not in always
+    ui = any(ui_only(k) for s in stages if s["agent"] == "builder" for k in s["skills"])
+    prep = []
+    if level >= 4 and "analyst" in by:
+        prep.append("analyst")
+    if "researcher" in by and by["researcher"].get("skill_scores"):
+        prep.append("researcher")
+    check = [a for a in ("tester", "reviewer") if a in by]
+    if ui and "design-critic" in by:
+        check.append("design-critic")
+    out = []
+    if prep:
+        out.append({"name": "prepare", "agents": prep, "parallel": True})
+    out.append({"name": "build", "agents": ["builder"], "parallel": fan_out(level)})
+    if check:
+        out.append({"name": "check", "agents": check, "parallel": True})
+    if "repairer" in by:
+        out.append({"name": "repair", "agents": ["repairer"], "on_failure": True})
+    for ph in out:
+        ph["dispatch"] = [classify.dispatch_name(a) for a in ph["agents"]]
+    return out
+
+
+def queue_waves(tasks, policies=()):
+    """Turn ready queue rows into parallel waves instead of one full pipeline each.
+
+    Small tasks (level <= 2) share one builder in batches of `batch_size`; heavier ones
+    get a builder each. A wave holds at most max_parallel() dispatches, all sent in one
+    message. Rows in one wave must touch disjoint files; the caller checks that.
+    """
+    cap = max_parallel()
+    size = max(1, int(_auto().get("batch_size", 3)))
+    small, big = [], []
+    for t in tasks:
+        c = classify.classify("%s %s" % (t.get("title", ""), t.get("body", "") or ""), 0, policies)
+        lvl = c["difficulty"]["level"]
+        row = {"id": t["id"], "title": t.get("title", ""), "level": lvl, "risk": c["risk"]["level"]}
+        (small if lvl <= 2 and c["risk"]["level"] == "normal" else big).append(row)
+    units = [{"agent": "aos-builder", "tasks": small[i:i + size]} for i in range(0, len(small), size)]
+    units += [{"agent": "aos-builder", "tasks": [r]} for r in big]
+    waves = [units[i:i + cap] for i in range(0, len(units), cap)]
+    return {"max_parallel": cap, "batch_size": size, "dispatches": len(units), "waves": waves}
 
 
 def plan(task_text, file_count=0, agent_hint=None, policies=(), adapter_data=None):
@@ -29,13 +115,24 @@ def plan(task_text, file_count=0, agent_hint=None, policies=(), adapter_data=Non
                        "skills": r["loaded"], "skill_paths": r["paths"],
                        "skill_scores": r["scores"]})
     wf = util.load_json(paths.config("workflow.json"))
+    # Single mode still delegates high/critical risk, matching pre_tool_use.delegation_check.
+    risky = c["risk"]["level"] in ("high", "critical")
+    delegate = ((agent_mode() == "multi" or risky)
+                and c["delegate"] and c["depth"] > TRIVIAL_MAX_LEVEL)
     return {
         "classification": c,
         "workflow": c["workflow"],
         "stages": stages,
-        "delegate": c["delegate"] and c["difficulty"]["level"] > TRIVIAL_MAX_LEVEL,
-        "direct_execution_reason": None if c["delegate"] else
-            "level %d task: delegation would cost more than it returns" % c["difficulty"]["level"],
+        "mode": agent_mode(),
+        "fan_out": fan_out(c["difficulty"]["level"]),
+        "phases": phases(stages, c["difficulty"]["level"]),
+        "max_parallel": max_parallel(),
+        # Gate on the risk-floored depth, not raw difficulty: a level-1 task raised by risk still delegates.
+        "delegate": delegate,
+        "direct_execution_reason": None if delegate else
+            ("single-agent mode: do every stage yourself, using the routed skills as role lenses"
+             if agent_mode() == "single" else
+             "level %d task: delegation would cost more than it returns" % c["difficulty"]["level"]),
         "max_repair_attempts": wf["max_repair_attempts"],
         "test_first": "RED" in c["workflow"],
     }

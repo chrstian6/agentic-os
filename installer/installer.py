@@ -6,6 +6,7 @@ creates is recorded in a manifest with a hash, so update, clean install and unin
 touch exactly what the installer owns and nothing else.
 """
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -33,8 +34,18 @@ def has_hook_marker(text):
 PRESERVE_ON_UPDATE = ["state", "adapter.json", "config"]
 
 
+@functools.lru_cache(maxsize=None)  # resolve before update removes DIST_ROOT
 def dist_root():
-    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if not os.path.isdir(os.path.join(here, "payload")):
+        # a deployed copy has no payload: use the distribution it was installed from
+        try:
+            recorded = open(os.path.join(here, "installer", "DIST_ROOT"), encoding="utf-8").read().strip()
+            if recorded:
+                return recorded
+        except OSError:
+            pass
+    return here
 
 
 def sha(path):
@@ -136,8 +147,14 @@ class Install(object):
         # installer CLI inside the installation, so update/doctor work from the project
         inst_dir = os.path.join(self.root, "installer")
         os.makedirs(inst_dir, exist_ok=True)
-        shutil.copy2(os.path.abspath(__file__), os.path.join(inst_dir, "installer.py"))
+        # copy from the distribution, not __file__: an update run from a deployed copy
+        # has just removed __file__, and the distribution's installer is the current one
+        shutil.copy2(os.path.join(dist_root(), "installer", "installer.py"), os.path.join(inst_dir, "installer.py"))
         files[self._rel(os.path.join(inst_dir, "installer.py"))] = sha(os.path.join(inst_dir, "installer.py"))
+        marker = os.path.join(inst_dir, "DIST_ROOT")
+        with open(marker, "w", encoding="utf-8") as fh:
+            fh.write(dist_root() + "\n")
+        files[self._rel(marker)] = sha(marker)
         wrapper = os.path.join(self.root, "bin", "agentic-os")
         with open(wrapper, "w", encoding="utf-8", newline="\n") as fh:
             fh.write('#!/usr/bin/env bash\nset -euo pipefail\n'
@@ -240,6 +257,7 @@ class Install(object):
         if BEGIN in existing and END in existing:
             pre = existing.split(BEGIN)[0]
             post = existing.split(END, 1)[1]
+            post = post[1:] if post.startswith("\n") else post  # payload already ends the END line
             new = pre + payload + post
         else:
             sep = "" if existing.endswith("\n") or not existing else "\n"

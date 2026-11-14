@@ -27,5 +27,9 @@
     "3": 5,
     "4": 7,
     "5": 8
-  }
+  },
+  "agent_mode": "single",
+  "fanout_from_level": 4,
+  "max_parallel": 3,
+  "batch_size": 3
 }

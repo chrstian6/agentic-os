@@ -121,3 +121,14 @@ def test_classify_exposes_dispatch_names_for_every_depth():
         assert c["dispatch"] == ["aos-" + a for a in c["agents"]], c
     # idempotent: an already-prefixed name is not double-prefixed
     assert classify.dispatch_name("aos-builder") == "aos-builder"
+
+
+def test_single_mode_still_delegates_high_risk():
+    # 1.8.5: single mode keeps the main thread on ordinary work, never on high/critical risk.
+    assert workflow.agent_mode() == "single"
+    heavy = workflow.plan("refactor the dashboard table components across the frontend "
+                          "and extract shared sorting and pagination hooks", file_count=20)
+    assert heavy["classification"]["risk"]["level"] == "normal" and heavy["delegate"] is False, heavy
+    risky = workflow.plan("issue a refund through stripe for the duplicate charge "
+                          "across the billing service and the admin dashboard", file_count=12)
+    assert risky["classification"]["risk"]["level"] in ("high", "critical") and risky["delegate"] is True, risky

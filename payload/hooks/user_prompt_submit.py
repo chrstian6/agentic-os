@@ -74,7 +74,44 @@ def _body(path):
     return text.strip()
 
 
-def build_context(root, prompt):
+SEEN_FILE = "session_skills.json"
+SEEN_KEEP = 30
+
+
+def _seen(root, sid):
+    """Skills already inlined in this session; their text is still in context."""
+    if not sid:
+        return set()
+    try:
+        with open(os.path.join(root, "state", SEEN_FILE)) as fh:
+            return set(json.load(fh).get(sid, {}).get("names", []))
+    except (IOError, OSError, ValueError):
+        return set()
+
+
+def _remember(root, sid, names):
+    if not sid or not names:
+        return
+    path = os.path.join(root, "state", SEEN_FILE)
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+    except (IOError, OSError, ValueError):
+        data = {}
+    entry = data.get(sid, {"names": []})
+    entry["names"] = sorted(set(entry["names"]) | set(names))
+    entry["at"] = time.time()
+    data[sid] = entry
+    data = dict(sorted(data.items(), key=lambda kv: kv[1].get("at", 0))[-SEEN_KEEP:])
+    try:
+        with open(path + ".tmp", "w") as fh:
+            json.dump(data, fh)
+        os.replace(path + ".tmp", path)
+    except (IOError, OSError):
+        pass
+
+
+def build_context(root, prompt, session_id=None):
     sys.path.insert(0, root)
     os.environ.setdefault("AOS_HOME", root)
     from runtime import adapter, learning, paths, workflow  # noqa: E402
@@ -136,20 +173,48 @@ def build_context(root, prompt):
     if level < cfg.get("quiet_below_level", 2) and risk["level"] == "normal":
         head.append("Trivial: do it directly, no delegation, no ceremony. "
                     "Still: evidence for any claim, and finish the whole request.")
+        # Names only, no inlined text: a trivial turn should not pay for skills, but
+        # it should still know which ones exist for it (`aos skills show <name>`).
+        named = [n for n in skills_planned if n not in ("shared/evidence", "project/lazy")][:3]
+        if named:
+            head.append("Relevant skills if needed: %s." % ", ".join(named))
         return " ".join(head)
 
     lines = list(head)
     lines.append("Workflow: %s." % " -> ".join(plan["workflow"]))
     if plan["delegate"]:
-        named = ", ".join("%s (%s)" % (s["dispatch"], s["tier"]) for s in plan["stages"])
-        if level >= 3:
-            lines.append("DISPATCH, do not implement directly: %s. One Task call per agent, "
-                         "each with MISSION / CONTEXT / SUCCESS / FORBIDDEN / EVIDENCE. "
-                         "You stay accountable for the result; you do not do the typing." % named)
-        else:
-            lines.append("Delegate with the Task tool to: %s." % named)
+        tier = {s["agent"]: s["tier"] for s in plan["stages"]}
+        steps = []
+        for i, ph in enumerate(plan.get("phases") or [], 1):
+            who = ", ".join("%s (%s)" % (d, tier.get(a, "?")) for a, d in zip(ph["agents"], ph["dispatch"]))
+            if ph["name"] == "build" and ph.get("parallel"):
+                who += " - heavy: one builder per disjoint-file slice, all in ONE message"
+            elif ph.get("on_failure"):
+                who = "ONLY if a check fails: " + who
+            elif len(ph["agents"]) > 1:
+                who += ", in ONE message"
+            steps.append("%d) %s: %s" % (i, ph["name"], who))
+        lines.append("DISPATCH in phases, do not implement directly: %s. Max %d subagents in "
+                     "flight. Each brief: MISSION / CONTEXT / SUCCESS / FORBIDDEN / EVIDENCE. "
+                     "You stay accountable for the result." % ("; ".join(steps), plan.get("max_parallel", 3)))
+    elif plan.get("fan_out"):
+        lines.append(
+            "Single-agent mode, HEAVY task: you own it, but slice it first. Split into parts "
+            "that touch disjoint files and need no other part's output. Send one aos-builder "
+            "Agent call per part, ALL in ONE message so they run in parallel; each brief "
+            "names MISSION and the routed skill lines (paste the output of `aos brief`), the exact "
+            "FILES it may touch, SUCCESS, FORBIDDEN, EVIDENCE. Parts that share "
+            "files or depend on each other stay serial, here. You integrate and run the final "
+            "verification yourself. Too small to slice? Do it here. Queued work: "
+            "`aos queue ready` lists tasks with no blockers - those fan out the same way.")
     else:
         lines.append("Do not delegate: %s" % plan["direct_execution_reason"])
+    if plan["delegate"] or plan.get("fan_out"):
+        for s in plan["stages"]:
+            if s["agent"] in ("builder", "repairer", "tester"):
+                lines.append('Brief header: run .claude/agentic-os/bin/aos brief "<your MISSION>" '
+                             '--agent %s and paste its output at the top of the dispatch prompt.'
+                             % s["agent"])
     if plan["test_first"]:
         lines.append("Test-first: write the failing test and watch it fail before implementing.")
 
@@ -169,8 +234,16 @@ def build_context(root, prompt):
     budget = int(by_depth.get(str(c["depth"]), cfg.get("inline_skill_budget_chars", 10000)))
     max_inline = int((cfg.get("max_inlined_by_depth") or {}).get(
         str(c["depth"]), cfg.get("max_inlined_skills", 4)))
-    inlined, listed = [], []
+    # A skill inlined earlier in this session is still in context: name it, do not
+    # resend it. Measured: three related prompts re-injected 14.5, 16.8 and 17.4 KB.
+    # ponytail: after a context compaction the text is gone; the name and path stay
+    # in the plan, and `aos skills show <name>` reloads it.
+    seen = _seen(root, session_id)
+    inlined, listed, kept = [], [], []
     for _i, name, rel in ordered[:max_inline]:
+        if name in seen:
+            kept.append(name)
+            continue
         body = _body(rel if os.path.isabs(rel) else os.path.join(root, rel))
         if body and len(body) <= budget:
             budget -= len(body)
@@ -189,28 +262,33 @@ def build_context(root, prompt):
     if listed:
         out.append("\nAlso scored, read if needed: %s"
                    % ", ".join("%s (%s)" % (n, p) for n, p in listed))
+    if kept:
+        out.append("\nStill in force from earlier this session (not resent): %s." % ", ".join(kept))
+    _remember(root, session_id, [n for n, _b in inlined])
     # The suggestion is a starting point, not a permit. Scoring is a keyword
     # heuristic and it misses: it cannot tell that a brand task wants the brand
     # skill when the word "brand" never appears. The agent has judgement the
     # scorer does not, so give it the whole shelf and say so — and say how to
     # reach it, because an agent that does not know the command will not guess.
-    out.append("\nYOU CHOOSE, not the router. The list above is a suggestion from keyword "
-               "scoring, and it is often incomplete. You may read ANY skill in the library, "
-               "as many as the task needs, at any point:\n"
-               "    aos skills list   --agent <you>      what you may use\n"
-               "    aos skills search <words>            find one by name or description\n"
-               "    aos skills show   <name>             read its full text\n"
-               "Load more when the task turns out to need them. Ignore a suggested one that "
-               "does not apply, and say why.")
+    if not seen:
+        out.append("\nYOU CHOOSE, not the router. The list above is a suggestion from keyword "
+                   "scoring, and it is often incomplete. You may read ANY skill in the library, "
+                   "as many as the task needs, at any point:\n"
+                   "    aos skills list   --agent <you>      what you may use\n"
+                   "    aos skills search <words>            find one by name or description\n"
+                   "    aos skills show   <name>             read its full text\n"
+                   "Load more when the task turns out to need them. Ignore a suggested one that "
+                   "does not apply, and say why.")
     out.append("\nGuards run automatically on every command and write. "
-               "Before reporting done, run the completion audit.")
+               "Before reporting done, run the completion audit. If this work created a branch or PR: "
+               "before done, merge it (or state why not) and give the PR link - never leave it open silently.")
     return "\n".join(out)
 
 
 def main():
     root = _boot.load()
     data = _boot.payload()
-    ctx = build_context(root, data.get("prompt", ""))
+    ctx = build_context(root, data.get("prompt", ""), data.get("session_id"))
     if not ctx:
         return 0
     _boot.emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",

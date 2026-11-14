@@ -1,5 +1,8 @@
 {
   "dimensions": {
+    "automation": {
+      "weight": 1.0
+    },
     "integration": {
       "weight": 0.8
     },
@@ -38,22 +41,68 @@
   ],
   "schema_version": 1,
   "signals": {
+    "automation": {
+      "agent that": 2,
+      "agentic": 2,
+      "ai agent": 2,
+      "automat": 1,
+      "background job": 2,
+      "classif": 1,
+      "cron": 2,
+      "daily": 1,
+      "embedding": 2,
+      "event-driven": 2,
+      "every morning": 1,
+      "exception report": 1,
+      "extract": 1,
+      "inbox": 1,
+      "llm": 2,
+      "nightly": 1,
+      "rag": 2,
+      "scan": 1,
+      "schedul": 2,
+      "summari": 1,
+      "tool calling": 2,
+      "tool use": 2,
+      "triage": 1,
+      "weekly": 1
+    },
     "integration": {
+      "anthropic": 2,
       "api": 1,
+      "docx": 1,
+      "email": 1,
       "endpoint": 1,
+      "excel": 1,
       "external service": 2,
+      "gmail": 2,
+      "google drive": 2,
       "graphql": 2,
       "grpc": 2,
       "http": 1,
       "integration": 2,
+      "microsoft graph": 2,
+      "notion": 1,
       "oauth": 2,
+      "openai": 2,
+      "outlook": 2,
+      "pdf": 1,
       "queue": 1,
       "rate limit": 2,
       "s3": 1,
+      "salesforce": 2,
+      "scrap": 2,
+      "sdk": 1,
+      "sharepoint": 2,
+      "simpro": 2,
+      "slack": 1,
+      "spreadsheet": 1,
       "stripe": 2,
+      "sync": 1,
       "third-party": 2,
       "upload": 1,
-      "webhook": 2
+      "webhook": 2,
+      "xero": 2
     },
     "reasoning": {
       "algorithm": 2,

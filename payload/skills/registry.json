@@ -1,5 +1,5 @@
 {
-  "count": 51,
+  "count": 58,
   "generated_from": "skills/**/SKILL.md",
   "schema_version": 1,
   "skills": {
@@ -369,6 +369,44 @@
       "version": "1.0.0",
       "words": 335
     },
+    "builder/hallmark": {
+      "agents": [
+        "builder",
+        "design-critic"
+      ],
+      "conflicts": [],
+      "dependencies": [
+        "builder/anti-ai-slop",
+        "builder/accessibility"
+      ],
+      "description": "Hallmark (nutlope/hallmark v2) - design new pages and websites that look made, not generated - fifty dealt themes, a hard Floor, sloplint browser checks and a fresh-eyes review. Never run it on an existing design unless the user names Hallmark (`/hallmark redesign <path>` or `/hallmark audit <path>`).",
+      "domains": [
+        "frontend",
+        "visual",
+        "design",
+        "landing-page"
+      ],
+      "has_tests": false,
+      "name": "builder/hallmark",
+      "path": "skills/builder/hallmark/SKILL.md",
+      "priority": 8,
+      "triggers": [
+        "hallmark",
+        "usehallmark",
+        "sloplint",
+        "landing page",
+        "marketing page",
+        "new website",
+        "homepage",
+        "pricing page",
+        "design a page",
+        "build a page",
+        "hallmark redesign",
+        "hallmark audit"
+      ],
+      "version": "2.0.0",
+      "words": 2828
+    },
     "builder/interaction-design": {
       "agents": [
         "builder",
@@ -446,6 +484,40 @@
       "version": "1.0.0",
       "words": 437
     },
+    "builder/motion-graphics-library": {
+      "agents": [
+        "builder",
+        "design-critic"
+      ],
+      "conflicts": [],
+      "dependencies": [
+        "builder/motion"
+      ],
+      "description": "Catalog of kinetic typography styles, motion animations and scene transitions with Remotion code, for picking and building each moment of a code-made motion video.",
+      "domains": [
+        "video",
+        "typography",
+        "remotion"
+      ],
+      "has_tests": false,
+      "name": "builder/motion-graphics-library",
+      "path": "skills/builder/motion-graphics-library/SKILL.md",
+      "priority": 6,
+      "triggers": [
+        "kinetic typography",
+        "kinetic type",
+        "motion graphics",
+        "text animation video",
+        "video transition",
+        "scene transition",
+        "remotion animation",
+        "animated title",
+        "lower third",
+        "wordmark reveal"
+      ],
+      "version": "1.0.0",
+      "words": 1513
+    },
     "builder/performance": {
       "agents": [
         "builder",
@@ -479,6 +551,80 @@
       ],
       "version": "1.0.0",
       "words": 330
+    },
+    "builder/product-svg-artist": {
+      "agents": [
+        "builder",
+        "design-critic"
+      ],
+      "conflicts": [],
+      "dependencies": [
+        "builder/design-taste"
+      ],
+      "description": "Draw a product's own icons, handwritten-style annotations, spot illustrations and logo marks as code-made SVG React components with draw-on animation, for videos and UIs.",
+      "domains": [
+        "icons",
+        "illustration",
+        "video"
+      ],
+      "has_tests": false,
+      "name": "builder/product-svg-artist",
+      "path": "skills/builder/product-svg-artist/SKILL.md",
+      "priority": 6,
+      "triggers": [
+        "icon set",
+        "custom icons",
+        "svg icon",
+        "svg icons",
+        "hand-drawn",
+        "handwritten",
+        "illustration",
+        "spot illustration",
+        "logo mark",
+        "product mark",
+        "annotation",
+        "doodle"
+      ],
+      "version": "1.0.0",
+      "words": 923
+    },
+    "builder/remotion-product-demo": {
+      "agents": [
+        "builder",
+        "design-critic"
+      ],
+      "conflicts": [],
+      "dependencies": [
+        "builder/motion-graphics-library",
+        "builder/product-svg-artist",
+        "builder/design-taste"
+      ],
+      "description": "Direct and build a code-only motion-graphics product demo video, scene by scene as React code rendered in Remotion at Full HD, from a real app's code, data and an ElevenLabs voice-over.",
+      "domains": [
+        "video",
+        "remotion",
+        "explainer"
+      ],
+      "has_tests": false,
+      "name": "builder/remotion-product-demo",
+      "path": "skills/builder/remotion-product-demo/SKILL.md",
+      "priority": 7,
+      "triggers": [
+        "remotion",
+        "demo video",
+        "product video",
+        "explainer video",
+        "promo video",
+        "motion graphics video",
+        "voice-over",
+        "voiceover",
+        "elevenlabs",
+        "storyboard",
+        "render the video",
+        "video for the app"
+      ],
+      "version": "1.0.0",
+      "words": 1910
     },
     "builder/responsive-design": {
       "agents": [
@@ -1051,6 +1197,42 @@
       "version": "1.0.0",
       "words": 285
     },
+    "reviewer/scale-review": {
+      "agents": [
+        "reviewer"
+      ],
+      "conflicts": [],
+      "dependencies": [
+        "reviewer/code-review"
+      ],
+      "description": "Review a change for what breaks under many concurrent users - per-viewer load, work inside locks, fan-out, connection use, and limits that only show at volume.",
+      "domains": [
+        "review",
+        "performance",
+        "scale"
+      ],
+      "has_tests": false,
+      "name": "reviewer/scale-review",
+      "path": "skills/reviewer/scale-review/SKILL.md",
+      "priority": 9,
+      "triggers": [
+        "scale",
+        "scaling",
+        "concurrency",
+        "concurrent users",
+        "load",
+        "performance",
+        "realtime",
+        "polling",
+        "lock",
+        "hot path",
+        "throughput",
+        "capacity",
+        "fan-out"
+      ],
+      "version": "1.0.0",
+      "words": 860
+    },
     "reviewer/security-review": {
       "agents": [
         "reviewer"
@@ -1212,6 +1394,43 @@
       "version": "1.0.0",
       "words": 325
     },
+    "shared/github-workflow": {
+      "agents": [
+        "orchestrator",
+        "builder",
+        "repairer",
+        "reviewer"
+      ],
+      "conflicts": [],
+      "dependencies": [],
+      "description": "Run branches, pull requests, CI, reviews and merges the way a senior engineer does - small PRs, never merge red, verify the pushed state, and never leave a PR to go stale.",
+      "domains": [
+        "git",
+        "github",
+        "delivery"
+      ],
+      "has_tests": false,
+      "name": "shared/github-workflow",
+      "path": "skills/shared/github-workflow/SKILL.md",
+      "priority": 7,
+      "triggers": [
+        "pull request",
+        "pr",
+        "merge",
+        "branch",
+        "github",
+        "gh",
+        "ci",
+        "rebase",
+        "conflict",
+        "review comment",
+        "push",
+        "stale pr",
+        "checks"
+      ],
+      "version": "1.0.0",
+      "words": 559
+    },
     "shared/safe-tool-use": {
       "agents": [
         "orchestrator",
@@ -1247,6 +1466,37 @@
       ],
       "version": "1.0.0",
       "words": 408
+    },
+    "shared/senior-engineer": {
+      "agents": [
+        "orchestrator",
+        "analyst",
+        "researcher",
+        "builder",
+        "design-critic",
+        "tester",
+        "repairer",
+        "reviewer"
+      ],
+      "conflicts": [],
+      "dependencies": [],
+      "description": "Work at the level of an engineer with ten years in production - read before writing, find the blast radius, change only the affected snippet, rule out false positives, prove it, and say plainly what is uncertain.",
+      "domains": [
+        "quality",
+        "engineering"
+      ],
+      "has_tests": false,
+      "name": "shared/senior-engineer",
+      "path": "skills/shared/senior-engineer/SKILL.md",
+      "priority": 9,
+      "triggers": [
+        "senior",
+        "production-grade",
+        "robust",
+        "staff engineer"
+      ],
+      "version": "1.0.0",
+      "words": 540
     },
     "shared/uncertainty": {
       "agents": [

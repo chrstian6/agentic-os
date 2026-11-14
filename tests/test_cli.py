@@ -31,7 +31,7 @@ def test_guard_command_exit_codes():
 
 def test_registry_validate():
     code, out = run("registry", "validate")
-    assert code == 0 and out["problems"] == [] and out["count"] == 51
+    assert code == 0 and out["problems"] == [] and out["count"] == 58
 
 
 def test_models_command_is_honest_about_availability():

@@ -1,6 +1,6 @@
 # Skills
 
-51 skills live in `.claude/agentic-os/skills/<agent>/<skill>/SKILL.md`. They are *installed*,
+58 skills live in `.claude/agentic-os/skills/<agent>/<skill>/SKILL.md`. They are *installed*,
 not loaded: the router selects a minimum sufficient set per task, typically three to six.
 
 ```
@@ -13,7 +13,8 @@ researcher/      technical-research, documentation-analysis, source-evaluation,
 builder/         frontend-engineering, backend-engineering, component-architecture,
                  accessibility, responsive-design, performance, security, design-taste,
                  anti-ai-slop, interaction-design, motion, frontend-testing,
-                 existing-project-redesign
+                 existing-project-redesign, remotion-product-demo,
+                 motion-graphics-library, product-svg-artist, hallmark
 design-critic/   visual-critique
 tester/          test-driven-development, test-design, unit-testing, integration-testing,
                  e2e-testing, regression-testing, edge-case-analysis, failure-analysis,
@@ -21,7 +22,7 @@ tester/          test-driven-development, test-design, unit-testing, integration
 repairer/        systematic-debugging, root-cause-analysis, regression-repair,
                  failure-analysis, verification
 reviewer/        code-review, requirements-review, adversarial-review, security-review,
-                 completion-audit, quality-review
+                 completion-audit, quality-review, scale-review
 ```
 
 ## Frontmatter (the registry source)
@@ -53,6 +54,16 @@ Two skills ship with runnable logic and tests:
   off-scale spacing against the budget in the skill. `python3 check.py styles.css`
 
 Both have test suites under `tests/` in their own folders, run as part of `tests/run.py`.
+
+## Vendored third-party skills
+
+- `builder/hallmark` — [nutlope/hallmark](https://github.com/nutlope/hallmark) v2.0.0 (MIT),
+  copied unchanged except for the frontmatter. Its `scripts/` (theme dealer, `sloplint.mjs`,
+  screenshot capture) and `references/` resolve from its own folder and need Node 18+; the
+  browser checks also need `npm i -g puppeteer-core` and Chrome. It is for *new* pages: run it
+  on an existing design only when the user names it (`/hallmark redesign <path>`,
+  `/hallmark audit <path>`). To refresh: re-copy `skills/hallmark/` from upstream, put this
+  frontmatter back, then `aos registry build`.
 
 ## Adding a skill
 

@@ -61,3 +61,49 @@ def test_genuinely_trivial_prompts_stay_trivial():
     for prompt in ("fix the typo in the nav label", "rename the variable foo to bar",
                    "update the comment above parseDate"):
         assert classify.classify(prompt)["difficulty"]["level"] == 1, prompt
+
+
+def test_agent_and_automation_work_is_not_trivial():
+    """Agents, schedulers and multi-service integrations must not read as level 1.
+
+    These used to score 1.0 because only "build " matched: the classifier had no
+    vocabulary for agentic work, scheduled jobs, document extraction, or named services.
+    """
+    for prompt in ("build an agent that triages the Outlook inbox via Microsoft Graph "
+                   "and files quote requests into SharePoint job folders",
+                   "build a scheduled agent that scans every job folder, extracts job details "
+                   "into an Excel workbook, and emails a weekly exception report of overdue jobs",
+                   "build an AI agent with tool use that drafts replies to customer emails"):
+        c = classify.classify(prompt)
+        assert c["difficulty"]["level"] >= 3, (prompt, c["difficulty"])
+
+
+def test_named_service_integrations_are_not_trivial():
+    for prompt in ("write a cron job that pulls cost centres from the Simpro API and flags "
+                   "jobs over budget",
+                   "sync new SharePoint documents into the jobs database every morning"):
+        c = classify.classify(prompt)
+        assert c["difficulty"]["level"] >= 2, (prompt, c["difficulty"])
+
+
+def test_mentioning_email_or_a_service_alone_stays_trivial():
+    for prompt in ("fix the typo in the email subject line",
+                   "rename the outlook folder variable"):
+        assert classify.classify(prompt)["difficulty"]["level"] == 1, prompt
+
+
+def test_signals_match_at_word_starts_not_inside_words():
+    """"ui" must not fire on "build", nor "form" on "platform", nor "test" on "latest"."""
+    d = classify.difficulty("build the latest platform release notes")
+    for hit in d["signals"]:
+        assert not hit.startswith(("visual:ui", "scope:form", "testing:test")), d["signals"]
+    # Stems still match the words they start.
+    d = classify.difficulty("optimize the concurrent scheduler")
+    assert "reasoning:optimi(+1)" in d["signals"], d["signals"]
+
+
+def test_risk_stems_do_not_match_inside_other_words():
+    # 1.8.5: "strip" is not "stripe", "wip" is not "wipe".
+    for task in ("strip whitespace from the search input", "commit the wip branch"):
+        assert classify.classify(task)["risk"]["level"] == "normal", task
+    assert classify.classify("issue a refund through stripe")["risk"]["level"] in ("high", "critical")

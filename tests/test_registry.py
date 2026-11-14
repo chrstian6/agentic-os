@@ -23,6 +23,7 @@ REQUIRED = [
     "repairer/regression-repair", "repairer/failure-analysis", "repairer/verification",
     "reviewer/code-review", "reviewer/requirements-review", "reviewer/adversarial-review",
     "reviewer/security-review", "reviewer/completion-audit", "reviewer/quality-review",
+    "reviewer/scale-review",
 ]
 
 

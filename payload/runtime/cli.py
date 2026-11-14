@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import tempfile
 
 if __package__ in (None, ""):  # allow `python3 runtime/cli.py`
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,6 +45,12 @@ def main(argv=None):
     p.add_argument("--agent")
     p.add_argument("--budget", type=int, default=6)
 
+    # The header a writer dispatch must open with (guard-delegation.py checks it).
+    p = sub.add_parser("brief", help="MISSION line + one `aos skills show` line per routed skill")
+    p.add_argument("mission")
+    p.add_argument("--agent", required=True)
+    p.add_argument("--budget", type=int, default=6)
+
     p = sub.add_parser("plan", help="full execution plan for a task")
     p.add_argument("task")
     p.add_argument("--files", type=int, default=0)
@@ -59,10 +66,13 @@ def main(argv=None):
     p.add_argument("--criteria", default="")
 
     p = sub.add_parser("queue")
-    p.add_argument("action", choices=["add", "list", "ready", "set", "get", "stats", "record"])
+    p.add_argument("action", choices=["add", "list", "ready", "set", "get", "stats", "record", "stale", "cancel-stale", "plan"])
     p.add_argument("args", nargs="*")
     p.add_argument("--depends-on", default="")
     p.add_argument("--body", default="")
+
+    p = sub.add_parser("mode", help="show or set agent mode: multi (delegate) | single (all in one)")
+    p.add_argument("value", nargs="?", choices=list(workflow.MODES))
 
     p = sub.add_parser("artifact")
     p.add_argument("action", choices=["write", "read"])
@@ -169,6 +179,28 @@ def main(argv=None):
     if a.cmd == "route":
         return out(router.route(a.task, agent=a.agent, budget=a.budget,
                                 adapter=_adapter(), policies=_policies()))
+    if a.cmd == "brief":
+        # Same router.route call as `aos route`, which is what the guard runs. Fold
+        # `aos-builder` to `builder`: route with an unknown agent returns nothing.
+        agent = a.agent[4:] if a.agent.startswith("aos-") else a.agent
+        # The guard reads only the first line after MISSION:, so a multi-line mission
+        # would route differently there, and a blank one is refused by it outright.
+        if not a.mission.strip() or "\n" in a.mission or "\r" in a.mission:
+            print("aos brief: mission must be non-blank and a single line", file=sys.stderr)
+            return 1
+        try:
+            loaded = router.route(a.mission, agent=agent, budget=a.budget,
+                                  adapter=_adapter(), policies=_policies())["loaded"]
+        except Exception as exc:
+            print("aos brief: routing failed: %s" % exc, file=sys.stderr)
+            return 1
+        if not loaded:
+            print("aos brief: no skills routed for agent %r" % agent, file=sys.stderr)
+            return 1
+        print("MISSION: %s" % a.mission)
+        for name in loaded:
+            print("aos skills show %s" % name)
+        return 0
     if a.cmd == "plan":
         return out(workflow.plan(a.task, a.files, policies=_policies(), adapter_data=_adapter()))
     if a.cmd == "guard":
@@ -215,9 +247,28 @@ def main(argv=None):
         return out({"champion": metrics.aggregate(con, arm="champion"),
                     "challenger": metrics.aggregate(con, arm="challenger")})
 
+    if a.cmd == "mode":
+        if a.value:
+            path = paths.config("auto.json")
+            cfg = util.load_json(path)
+            cfg["agent_mode"] = a.value
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w") as fh:
+                    json.dump(cfg, fh, indent=2)
+                os.chmod(tmp, os.stat(path).st_mode & 0o777)  # mkstemp is 0600; keep auto.json's mode
+                os.replace(tmp, path)
+            except BaseException:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+                raise
+        return out({"agent_mode": workflow.agent_mode()})
+
     if a.cmd == "queue":
         con = queue.connect()
         act, args = a.action, a.args
+        if act == "plan":
+            return out(workflow.queue_waves(queue.ready(con), _policies()))
         if act == "add":
             title = args[0]
             cls = classify.classify(title, policies=_policies())
@@ -235,6 +286,13 @@ def main(argv=None):
         if act == "set":
             queue.set_status(con, int(args[0]), args[1], " ".join(args[2:]))
             return out(queue.get(con, int(args[0])))
+        if act in ("stale", "cancel-stale"):
+            days = float(args[0]) if args else 7
+            rows = queue.stale(con, days)
+            if act == "cancel-stale":
+                for r in rows:
+                    queue.set_status(con, r["id"], "CANCELLED", "stale >%gd" % days)
+            return out([{k: r[k] for k in ("id", "title", "status", "updated_at")} for r in rows])
         if act == "record":
             queue.record(con, int(args[0]), **json.loads(a.body or "{}"))
             return out(queue.get(con, int(args[0])))

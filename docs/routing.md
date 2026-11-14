@@ -6,9 +6,12 @@ same thing by hand.
 
 ## Difficulty (levels 1-5)
 
-`config/classifier.json` scores eight weighted dimensions — reasoning, scope, uncertainty,
-integration, state, testing, risk, visual — from signal phrases in the task text, plus
-points for the number of files involved. Thresholds map the total to a level. Everything is
+`config/classifier.json` scores nine weighted dimensions — reasoning, scope, uncertainty,
+integration, state, testing, risk, visual, automation — from signal phrases in the task text,
+plus points for the number of files involved. A signal matches where a word starts, so stems
+like `optimi` still match `optimize`, but `ui` no longer fires inside `build`. The automation
+dimension covers agentic work: agents, scheduled and event-driven jobs, document extraction
+and LLM features. Thresholds map the total to a level. Everything is
 configurable; edit the weights, signals, or thresholds and the classifier changes.
 
 ## Risk (normal / elevated / high / critical)
@@ -39,7 +42,7 @@ biases frontend domains). Skills not compatible with the acting agent are exclud
 N (N = the depth's skill budget) above a score floor are selected, then dependencies are
 pulled in and conflicts resolved by priority.
 
-Typical result: 3 of 51 skills for a CSS tweak, 8 for a redesign. That gap is the point.
+Typical result: 3 of 58 skills for a CSS tweak, 8 for a redesign. That gap is the point.
 
 ## Delegation
 
