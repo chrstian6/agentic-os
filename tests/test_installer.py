@@ -507,3 +507,17 @@ def test_plugin_wired_hooks_are_not_written_twice():
     assert not installer.plugin_wired({"enabledPlugins": {"agentic-os@local": False}})
     assert not installer.plugin_wired({"enabledPlugins": {"other@x": True}})
     assert not installer.plugin_wired({}) and not installer.plugin_wired([])
+
+
+def test_project_install_wires_its_own_hooks_even_with_the_plugin_enabled():
+    # The plugin runs the HOME install's hooks, and those stand down behind a project
+    # install - so a project that skipped its own wiring would have no hooks at all.
+    d = project()
+    try:
+        write(os.path.join(d, ".claude", "settings.json"),
+              '{"enabledPlugins": {"agentic-os@local": true}}\n')
+        installer.Install(d, quiet=True).install()
+        text = open(os.path.join(d, ".claude", "settings.json"), encoding="utf-8").read()
+        assert installer.has_hook_marker(text), text
+    finally:
+        rm(d)

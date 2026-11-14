@@ -311,7 +311,7 @@ class Install(object):
                 log("  settings.json is not valid JSON - hooks not installed", self.quiet)
                 return []
             shutil.copy2(path, path + ".aos-backup")
-        if plugin_wired(data):
+        if self.is_home_install() and plugin_wired(data):
             log("  hooks already wired by the agentic-os plugin - settings.json left alone", self.quiet)
             return []
         hooks = data.setdefault("hooks", {})
@@ -540,7 +540,8 @@ class Install(object):
         try:
             with open(self.settings_path(), encoding="utf-8") as fh:
                 text = fh.read()
-                hooks_ok = has_hook_marker(text) or plugin_wired(json.loads(text))
+                hooks_ok = has_hook_marker(text) or (
+                    self.is_home_install() and plugin_wired(json.loads(text)))
         except (IOError, OSError, ValueError):
             pass
         chk("hooks wired", hooks_ok, self.settings_path())
