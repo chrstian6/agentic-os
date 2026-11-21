@@ -277,7 +277,10 @@ def test_the_highest_scoring_skills_are_the_ones_inlined():
     inlined = re.findall(r'<skill name="([^"]+)">', c)
     assert inlined, c[:200]
     assert inlined[0] in ("builder/design-taste", "builder/existing-project-redesign"), inlined
-    assert "builder/anti-ai-slop" in inlined, inlined
+    # under Claude Code's 10,000-char cap the runner-up may not fit: then it is named
+    # with its path so it can be read, never silently dropped
+    assert "builder/anti-ai-slop" in inlined or "builder/anti-ai-slop (" in c, inlined
+    assert len(c) < 10000, len(c)
 
 
 def test_guard_mode_exits_nonzero_so_other_hooks_defer():

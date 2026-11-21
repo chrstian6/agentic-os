@@ -107,6 +107,38 @@ def delegation_check(root, tool, tool_input=None, sid=None):
     }
 
 
+HANDBACK_TOOLS = ("SubagentHandback",)
+
+
+def handback_gate(root, data):
+    """Deny a subagent's first hand-back when it edited code and ran nothing after.
+
+    In the desktop app a subagent ends by calling SubagentHandback; SubagentStop fires
+    after the report is already delivered, so a block there cannot send it back
+    (measured live: gate.log said block, the agent had already returned). A PreToolUse
+    deny reaches the subagent as its next instruction. Once per agent, so one that
+    genuinely cannot run anything says so and is let through.
+    """
+    agent_id = data.get("agent_id")
+    if data.get("tool_name") not in HANDBACK_TOOLS or not agent_id:
+        return None
+    if _cfg(root).get("proof_gate", "block") == "off":
+        return None
+    import stop
+    sid = data.get("session_id")
+    log = os.path.join(root, "state", "gate.log")
+    try:
+        with open(log) as fh:
+            if any('"agent_id": "%s"' % agent_id in ln and '"handback"' in ln for ln in fh):
+                return None
+    except (IOError, OSError):
+        pass
+    gap = stop.proof_gap(_boot.session_events(root, sid, agent_id=agent_id),
+                         str((data.get("tool_input") or {}))[:2000])
+    stop._trace(root, "handback", sid, agent_id, gap)
+    return gap
+
+
 def main():
     """Hook mode (default): emit a JSON permission decision, exit 0.
 
@@ -115,9 +147,17 @@ def main():
     another hook's `allow` suppresses this one's `ask` and the decision never surfaces.
     """
     guard_mode = "--guard" in sys.argv
-    _boot.load()
+    root = _boot.load()
     data = _boot.payload()
     tool = data.get("tool_name") or ""
+    if tool in HANDBACK_TOOLS:
+        gap = handback_gate(root, data)
+        if gap:
+            _boot.emit({"hookSpecificOutput": {
+                "hookEventName": "PreToolUse", "permissionDecision": "deny",
+                "permissionDecisionReason": "[agentic-os proof gate] " + gap
+                + " Then hand back again with the command and its output."}})
+        return 0
     ti = data.get("tool_input") or {}
     try:
         from runtime import guards

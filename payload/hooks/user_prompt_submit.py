@@ -86,6 +86,8 @@ def _body(path):
     return text.strip()
 
 
+HARNESS_CAP = 9500      # Claude Code's additionalContext limit is 10,000 chars
+TAIL_RESERVE = 1800     # the listed/kept lines and closing guidance after the skills
 SEEN_FILE = "session_skills.json"
 SEEN_KEEP = 30
 
@@ -253,6 +255,9 @@ def build_context(root, prompt, session_id=None):
     # resend it. Measured: three related prompts re-injected 14.5, 16.8 and 17.4 KB.
     # ponytail: after a context compaction the text is gone; the name and path stay
     # in the plan, and `aos skills show <name>` reloads it.
+    # Claude Code spills additionalContext over 10,000 chars to a file and shows only a
+    # preview: skills past the cap are never read. Measured live: 20.5 KB at depth 4.
+    budget = min(budget, HARNESS_CAP - len(" ".join(lines)) - TAIL_RESERVE)
     seen = _seen(root, session_id)
     inlined, listed, kept = [], [], []
     for _i, name, rel in ordered[:max_inline]:

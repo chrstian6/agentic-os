@@ -104,6 +104,22 @@ def _cfg(root):
         return {}
 
 
+def _trace(root, event, sid, agent_id, gap):
+    """One line per gate decision, so a miss can be diagnosed and the gate measured."""
+    try:
+        path = os.path.join(root, "state", "gate.log")
+        with open(path, "a") as fh:
+            fh.write(json.dumps({"at": time.time(), "event": event, "session": sid,
+                                 "agent_id": agent_id,
+                                 "verdict": "block" if gap else "pass"}) + "\n")
+        if os.path.getsize(path) > 200000:
+            lines = open(path).readlines()[-500:]
+            with open(path, "w") as fh:
+                fh.writelines(lines)
+    except (IOError, OSError):
+        pass
+
+
 def proof_gap(events, last_message=""):
     """Why this turn has not proven its work, or None.
 
@@ -149,15 +165,22 @@ def main():
         agent_id = data.get("agent_id")
         if not agent_id or gate == "off" or data.get("stop_hook_active"):
             return 0
-        gap = proof_gap(_boot.session_events(root, sid, since=since, agent_id=agent_id),
+        # agent_id is unique per subagent: no time window. A new prompt mid-run resets
+        # the turn's start and hid a live subagent's edit from the gate.
+        gap = proof_gap(_boot.session_events(root, sid, agent_id=agent_id),
                         data.get("last_assistant_message") or "")
+        _trace(root, "SubagentStop", sid, agent_id, gap)
         if gap:
-            _boot.emit({"decision": "block", "reason": "[agentic-os proof gate] " + gap})
+            # Exit 2 + stderr, not JSON: measured live, a JSON block on SubagentStop was
+            # logged here and the subagent stopped anyway.
+            sys.stderr.write("[agentic-os proof gate] " + gap + "\n")
+            return 2
         return 0
 
     main_events = _boot.session_events(root, sid, since=since, main_only=True)
     if gate != "off" and not data.get("stop_hook_active"):
         gap = proof_gap(main_events, data.get("last_assistant_message") or "")
+        _trace(root, "Stop", sid, None, gap)
         if gap:
             # keep the turn: the stop that follows the proof is the one measured
             _boot.emit({"decision": "block", "reason": "[agentic-os proof gate] " + gap})

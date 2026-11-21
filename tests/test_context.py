@@ -60,16 +60,21 @@ def test_compaction_resets_seen_skills_and_restores_the_plan():
         first = _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
         ctx = first["hookSpecificOutput"]["additionalContext"]
         assert "<skill name=" in ctx
+        import re
+        sent = set(re.findall(r'<skill name="([^"]+)"', ctx))
         again = _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
-        assert "<skill name=" not in again["hookSpecificOutput"]["additionalContext"]
+        resent = set(re.findall(r'<skill name="([^"]+)"',
+                                again["hookSpecificOutput"]["additionalContext"]))
+        assert sent and not (sent & resent), (sent, resent)
 
         out = _run(root, "session_start.py", {"session_id": "S", "source": "compact"})
         restored = out["hookSpecificOutput"]["additionalContext"]
         assert "repair-status filter" in restored, restored
 
         after = _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
-        assert "<skill name=" in after["hookSpecificOutput"]["additionalContext"], \
-            "skill text was lost to compaction and must be re-sent"
+        back = set(re.findall(r'<skill name="([^"]+)"',
+                              after["hookSpecificOutput"]["additionalContext"]))
+        assert sent & back, "skill text was lost to compaction and must be re-sent"
     finally:
         rm(d)
 
@@ -104,6 +109,16 @@ def test_pre_compact_tells_the_summary_what_to_keep():
 
 def _block(out):
     return bool(out) and out.get("decision") == "block"
+
+
+def _sub_stop(root, payload):
+    """SubagentStop blocks with exit 2 + stderr. Returns (blocked, reason)."""
+    env = dict(os.environ, AOS_HOME=root)
+    p = dict(payload, hook_event_name="SubagentStop")
+    r = subprocess.run([sys.executable, os.path.join(root, "hooks", "stop.py")],
+                       input=json.dumps(p), capture_output=True, text=True, env=env)
+    assert r.returncode in (0, 2), r.stderr
+    return r.returncode == 2, r.stderr
 
 
 def test_proof_gate_blocks_edit_without_a_run():
@@ -153,12 +168,11 @@ def test_subagent_stop_judges_only_that_subagent():
         _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
         _tool(root, "S", "Bash", command="pytest -q")            # main thread ran tests
         _tool(root, "S", "Edit", agent_id="sub1", file_path="app/x.ts")
-        out = _run(root, "stop.py", {"hook_event_name": "SubagentStop", "session_id": "S",
-                                     "agent_id": "sub1", "agent_type": "aos-builder"})
-        assert _block(out) and "app/x.ts" in out["reason"], out
+        blocked, reason = _sub_stop(root, {"session_id": "S", "agent_id": "sub1",
+                                           "agent_type": "aos-builder"})
+        assert blocked and "app/x.ts" in reason, reason
         _tool(root, "S", "Bash", agent_id="sub1", command="npx vitest run x")
-        assert not _block(_run(root, "stop.py", {"hook_event_name": "SubagentStop",
-                                                 "session_id": "S", "agent_id": "sub1"}))
+        assert not _sub_stop(root, {"session_id": "S", "agent_id": "sub1"})[0]
         # SubagentStop must not consume the main turn
         assert os.path.exists(os.path.join(root, "state", "turns", "S.json"))
     finally:
@@ -225,3 +239,57 @@ def test_agent_frontmatter_matches_role_tier():
         model = re.search(r"^model:\s*(\S+)", open(path).read(), re.M).group(1)
         want = models.resolve(cfg["agent_preferred_tier"][role], cfg, available=[])
         assert model == want, (role, model, want)
+
+
+def test_subagent_gate_ignores_turn_timing_and_is_traced():
+    """Live miss: a new prompt reset the turn's start after the subagent's edit, so the
+    edit fell outside the window. Judge a subagent by its agent_id alone."""
+    import time
+    d, root = _fresh()
+    try:
+        _tool(root, "S", "Write", agent_id="sub9", file_path="probe.py")
+        time.sleep(0.01)
+        _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
+        blocked, _r = _sub_stop(root, {"session_id": "S", "agent_id": "sub9",
+                                       "last_assistant_message": "done"})
+        assert blocked
+        trace = open(os.path.join(root, "state", "gate.log")).read()
+        assert "SubagentStop" in trace and "sub9" in trace and "block" in trace, trace
+    finally:
+        rm(d)
+
+
+def test_injected_context_stays_under_the_harness_cap():
+    """Claude Code spills additionalContext over 10,000 chars to a file. Measured live: a
+    pasted policy produced 20.5 KB at depth 4."""
+    d, root = _fresh()
+    try:
+        prompt = ("audit our payment security, auth, stripe checkout, secrets handling, "
+                  "rate limiting, database migrations, load testing and code review policy "
+                  "for the production auction platform") * 3
+        out = _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": prompt})
+        ctx = out["hookSpecificOutput"]["additionalContext"]
+        assert len(ctx) < 10000, len(ctx)
+    finally:
+        rm(d)
+
+
+def test_subagent_handback_is_gated_once():
+    """In the desktop app a subagent ends by calling SubagentHandback; SubagentStop fires
+    after the report is delivered, so only a PreToolUse deny can send it back."""
+    d, root = _fresh()
+    try:
+        _tool(root, "S", "Write", agent_id="h1", file_path="probe.py")
+        hb = {"session_id": "S", "agent_id": "h1", "tool_name": "SubagentHandback",
+              "tool_input": {"report": "done"}}
+        out = _run(root, "pre_tool_use.py", hb)
+        hso = out["hookSpecificOutput"]
+        assert hso["permissionDecision"] == "deny" and "probe.py" in hso["permissionDecisionReason"]
+        # once only: a second handback is let through so an agent that cannot run is not stuck
+        assert _run(root, "pre_tool_use.py", hb) is None
+        # an agent that ran something after its edit is never stopped
+        _tool(root, "S", "Write", agent_id="h2", file_path="b.py")
+        _tool(root, "S", "Bash", agent_id="h2", command="python3 b.py")
+        assert _run(root, "pre_tool_use.py", dict(hb, agent_id="h2")) is None
+    finally:
+        rm(d)

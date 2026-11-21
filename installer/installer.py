@@ -316,7 +316,8 @@ class Install(object):
             return []
         hooks = data.setdefault("hooks", {})
         wanted = [
-            ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre_tool_use.py"),
+            # SubagentHandback: the desktop app's subagent exit; the proof gate denies it once
+            ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit|SubagentHandback", "pre_tool_use.py"),
             # Agent|Task: delegations must be logged or agents_used is always 0
             ("PostToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit|Agent|Task", "post_tool_use.py"),
             ("SessionStart", None, "session_start.py"),
