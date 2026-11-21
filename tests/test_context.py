@@ -293,3 +293,76 @@ def test_subagent_handback_is_gated_once():
         assert _run(root, "pre_tool_use.py", dict(hb, agent_id="h2")) is None
     finally:
         rm(d)
+
+
+def _gate_after(prompt):
+    """A prompt, an unproven edit, then a Stop that claims done."""
+    d, root = _fresh()
+    try:
+        out = _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": prompt})
+        _tool(root, "S", "Edit", file_path="/x/app/c.ts")
+        stop = _run(root, "stop.py", {"session_id": "S",
+                                      "last_assistant_message": "Fixed, tests pass."})
+        return out, stop
+    finally:
+        rm(d)
+
+
+def test_proof_gate_still_applies_after_a_short_prompt():
+    out, stop = _gate_after("yes, do it")
+    assert out is None, out                      # no routing context for a short prompt
+    assert _block(stop), stop
+
+
+def test_proof_gate_still_applies_after_a_harness_message():
+    for prompt in ("<task-notification>agent finished</task-notification>",
+                   "<system-reminder>x</system-reminder> carry on",
+                   "/commit the change"):
+        out, stop = _gate_after(prompt)
+        assert out is None, (prompt, out)
+        assert _block(stop), (prompt, stop)
+
+
+def test_cross_session_message_injects_no_routing_but_keeps_the_gate():
+    out, stop = _gate_after('<cross-session-message from="other">refactor the auth '
+                            'system, migrate the users table and deploy to production'
+                            '</cross-session-message>')
+    assert out is None, out
+    assert _block(stop), stop
+
+
+def test_a_harness_message_mid_turn_keeps_the_turns_classification():
+    d, root = _fresh()
+    try:
+        _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
+        before = json.load(open(os.path.join(root, "state", "turns", "S.json")))
+        _run(root, "user_prompt_submit.py",
+             {"session_id": "S", "prompt": "<task-notification>done</task-notification>"})
+        after = json.load(open(os.path.join(root, "state", "turns", "S.json")))
+        assert after == before
+    finally:
+        rm(d)
+
+
+BROAD = ("Redesign the whole production checkout: migrate the database schema, rewrite the "
+         "payments API with Stripe webhooks, add auth and security review, build the React "
+         "frontend with accessibility, write e2e tests, deploy to production and set up "
+         "monitoring, docs and CI")
+
+
+def test_injected_context_never_exceeds_the_harness_cap():
+    d, root = _fresh()
+    try:
+        cfg_path = os.path.join(root, "config", "auto.json")
+        cfg = json.load(open(cfg_path))
+        cfg.update(agent_mode="multi", max_inlined_by_depth={"5": 20, "4": 20, "3": 20},
+                   inline_budget_by_depth={"5": 60000, "4": 60000, "3": 60000})
+        json.dump(cfg, open(cfg_path, "w"))
+        out = _run(root, "user_prompt_submit.py", {"prompt": BROAD})
+        c = out["hookSpecificOutput"]["additionalContext"]
+        assert len(c) <= 9500, len(c)
+        assert c.startswith("[Agentic OS] level"), c[:80]
+        assert "run the completion audit" in c and c.rstrip().endswith("open silently.")
+        assert "YOU CHOOSE" in c
+    finally:
+        rm(d)

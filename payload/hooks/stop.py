@@ -186,6 +186,10 @@ def main():
             _boot.emit({"decision": "block", "reason": "[agentic-os proof gate] " + gap})
             return 0
 
+    if turn.get("gate_only"):
+        # no classification to measure against: a metrics row here would be noise
+        _boot.drop_turn(root, sid)
+        return 0
     try:
         from runtime import learning, metrics
     except Exception:

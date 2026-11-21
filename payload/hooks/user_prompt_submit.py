@@ -61,7 +61,7 @@ def task_text(prompt, cfg):
 
 
 HARNESS_MARKERS = ("<task-notification", "<system-reminder", "<side-sessions-event",
-                   "<ci-monitor-event", "[Subagent hand-back]")
+                   "<ci-monitor-event", "<cross-session-message", "[Subagent hand-back]")
 
 
 def is_harness_message(text):
@@ -125,6 +125,17 @@ def _remember(root, sid, names):
         pass
 
 
+def _gate_only_turn(root, session_id):
+    """No routing for this prompt, but the Stop proof gate still needs a turn to judge.
+
+    An open turn (a gate block that is still being answered, or a turn a harness message
+    interrupts) is kept as it is: its start covers these edits and its classification
+    still holds. Otherwise a bare marker, which stop.py gates and does not measure.
+    """
+    if not _boot.read_turn(root, session_id):
+        _boot.write_turn(root, session_id, {"started": time.time(), "gate_only": True})
+
+
 def build_context(root, prompt, session_id=None):
     sys.path.insert(0, root)
     os.environ.setdefault("AOS_HOME", root)
@@ -134,11 +145,10 @@ def build_context(root, prompt, session_id=None):
     if not cfg.get("enabled", True):
         return None
     text = (prompt or "").strip()
-    if len(text) < cfg.get("min_prompt_chars", 12):
-        return None
-    if any(text.startswith(p) for p in cfg.get("skip_prefixes", [])):
-        return None
-    if is_harness_message(text):
+    if len(text) < cfg.get("min_prompt_chars", 12) \
+            or any(text.startswith(p) for p in cfg.get("skip_prefixes", [])) \
+            or is_harness_message(text):
+        _gate_only_turn(root, session_id)
         return None
 
     arm, policy_id = "champion", None
@@ -273,35 +283,52 @@ def build_context(root, prompt, session_id=None):
     for _i, name, rel in ordered[max_inline:]:
         listed.append((name, rel))
 
-    out = [" ".join(lines)]
-    if inlined:
-        out.append("\nSkills the router SUGGESTS for this task (%d of them) - read them first:"
-                   % (len(inlined) + len(listed)))
-        for name, body in inlined:
-            out.append("\n<skill name=\"%s\">\n%s\n</skill>" % (name, body))
-    if listed:
-        out.append("\nAlso scored, read if needed: %s"
-                   % ", ".join("%s (%s)" % (n, p) for n, p in listed))
-    if kept:
-        out.append("\nStill in force from earlier this session (not resent): %s." % ", ".join(kept))
+    def assemble(inlined, listed, omitted):
+        out = [" ".join(lines)]
+        if inlined:
+            out.append("\nSkills the router SUGGESTS for this task (%d of them) - read them first:"
+                       % (len(inlined) + len(listed) + omitted))
+            for name, body in inlined:
+                out.append("\n<skill name=\"%s\">\n%s\n</skill>" % (name, body))
+        if listed or omitted:
+            more = ("; %d more omitted to fit the context cap (aos skills search)" % omitted
+                    if omitted else "")
+            out.append("\nAlso scored, read if needed: %s%s"
+                       % (", ".join("%s (%s)" % (n, p) for n, p in listed), more))
+        if kept:
+            out.append("\nStill in force from earlier this session (not resent): %s." % ", ".join(kept))
+        # The suggestion is a starting point, not a permit. Scoring is a keyword
+        # heuristic and it misses: it cannot tell that a brand task wants the brand
+        # skill when the word "brand" never appears. The agent has judgement the
+        # scorer does not, so give it the whole shelf and say so — and say how to
+        # reach it, because an agent that does not know the command will not guess.
+        if not seen:
+            out.append("\nYOU CHOOSE, not the router. The list above is a suggestion from keyword "
+                       "scoring, and it is often incomplete. You may read ANY skill in the library, "
+                       "as many as the task needs, at any point:\n"
+                       "    aos skills list   --agent <you>      what you may use\n"
+                       "    aos skills search <words>            find one by name or description\n"
+                       "    aos skills show   <name>             read its full text\n"
+                       "Load more when the task turns out to need them. Ignore a suggested one that "
+                       "does not apply, and say why.")
+        out.append("\nGuards run automatically on every command and write. "
+                   "Before reporting done, run the completion audit. If this work created a branch or PR: "
+                   "before done, merge it (or state why not) and give the PR link - never leave it open silently.")
+        return out
+
+    # The cap is on the whole block, not on the skills: over it, Claude Code shows a
+    # preview and the closing guard lines are lost. Trim the least important first:
+    # the scored-but-not-inlined names, then the lowest-scoring inlined bodies.
+    omitted = 0
+    out = assemble(inlined, listed, omitted)
+    while len("\n".join(out)) > HARNESS_CAP and (listed or inlined):
+        (listed or inlined).pop()
+        omitted += 1
+        out = assemble(inlined, listed, omitted)
+    over = len("\n".join(out)) - HARNESS_CAP
+    if over > 0:                        # the plan lines alone overflow: shorten them, keep the rest
+        out[0] = out[0][:max(len(out[0]) - over - 3, 0)] + "..."
     _remember(root, session_id, [n for n, _b in inlined])
-    # The suggestion is a starting point, not a permit. Scoring is a keyword
-    # heuristic and it misses: it cannot tell that a brand task wants the brand
-    # skill when the word "brand" never appears. The agent has judgement the
-    # scorer does not, so give it the whole shelf and say so — and say how to
-    # reach it, because an agent that does not know the command will not guess.
-    if not seen:
-        out.append("\nYOU CHOOSE, not the router. The list above is a suggestion from keyword "
-                   "scoring, and it is often incomplete. You may read ANY skill in the library, "
-                   "as many as the task needs, at any point:\n"
-                   "    aos skills list   --agent <you>      what you may use\n"
-                   "    aos skills search <words>            find one by name or description\n"
-                   "    aos skills show   <name>             read its full text\n"
-                   "Load more when the task turns out to need them. Ignore a suggested one that "
-                   "does not apply, and say why.")
-    out.append("\nGuards run automatically on every command and write. "
-               "Before reporting done, run the completion audit. If this work created a branch or PR: "
-               "before done, merge it (or state why not) and give the PR link - never leave it open silently.")
     return "\n".join(out)
 
 
