@@ -366,3 +366,56 @@ def test_injected_context_never_exceeds_the_harness_cap():
         assert "YOU CHOOSE" in c
     finally:
         rm(d)
+
+
+def test_gate_only_turn_restores_without_empty_fields():
+    """A short prompt leaves a gate_only turn with no prompt or level; compaction must not
+    restore it as '"" (level None, risk None)'."""
+    d, root = _fresh()
+    try:
+        _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": "yes, do it"})
+        _tool(root, "S", "Edit", file_path="app/c.ts")
+        out = _run(root, "session_start.py", {"session_id": "S", "source": "compact"})
+        text = out["hookSpecificOutput"]["additionalContext"] if out else ""
+        assert "None" not in text and '""' not in text, text
+        assert "app/c.ts" in text, text
+        env = dict(os.environ, AOS_HOME=root)
+        r = subprocess.run([sys.executable, os.path.join(root, "hooks", "pre_compact.py")],
+                           input=json.dumps({"session_id": "S"}), capture_output=True,
+                           text=True, env=env)
+        assert "None" not in r.stdout and "app/c.ts" in r.stdout, r.stdout[-300:]
+    finally:
+        rm(d)
+
+
+def test_negated_claims_are_not_claims():
+    for msg, should_block in (("This hasn't been verified live yet.", False),
+                              ("Not verified: needs a restart.", False),
+                              ("The gate is unverified.", False),
+                              ("Never confirmed working on Windows.", False),
+                              ("Fixed and verified.", True),
+                              ("All tests pass.", True),
+                              ("No issues found; all tests pass.", True)):
+        d, root = _fresh()
+        try:
+            _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
+            out = _run(root, "stop.py", {"session_id": "S", "last_assistant_message": msg})
+            assert _block(out) == should_block, (msg, out)
+        finally:
+            rm(d)
+
+
+def test_short_prompt_after_an_interrupted_block_starts_a_fresh_window():
+    """Stop does not fire on an interrupt, so a blocked turn's file survives. The next user
+    prompt is a new turn: its window must not include the old unproven edit."""
+    import time
+    d, root = _fresh()
+    try:
+        _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": PROMPT})
+        _tool(root, "S", "Edit", file_path="app/old.ts")
+        assert _block(_run(root, "stop.py", {"session_id": "S"}))   # blocked, then interrupted
+        time.sleep(0.01)
+        _run(root, "user_prompt_submit.py", {"session_id": "S", "prompt": "ok thanks"})
+        assert not _block(_run(root, "stop.py", {"session_id": "S"}))
+    finally:
+        rm(d)

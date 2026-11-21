@@ -125,14 +125,16 @@ def _remember(root, sid, names):
         pass
 
 
-def _gate_only_turn(root, session_id):
+def _gate_only_turn(root, session_id, keep_open=True):
     """No routing for this prompt, but the Stop proof gate still needs a turn to judge.
 
-    An open turn (a gate block that is still being answered, or a turn a harness message
-    interrupts) is kept as it is: its start covers these edits and its classification
-    still holds. Otherwise a bare marker, which stop.py gates and does not measure.
+    A harness message (task notification, hand-back) arrives inside a turn: an open turn
+    is kept as it is, its start covers the edits and its classification holds. A short
+    user prompt is a new turn, like any classified prompt: it opens a fresh window. Stop
+    does not fire on an interrupt, so a blocked turn's file can outlive its turn and would
+    otherwise charge the old edit to the new prompt.
     """
-    if not _boot.read_turn(root, session_id):
+    if not keep_open or not _boot.read_turn(root, session_id):
         _boot.write_turn(root, session_id, {"started": time.time(), "gate_only": True})
 
 
@@ -148,7 +150,7 @@ def build_context(root, prompt, session_id=None):
     if len(text) < cfg.get("min_prompt_chars", 12) \
             or any(text.startswith(p) for p in cfg.get("skip_prefixes", [])) \
             or is_harness_message(text):
-        _gate_only_turn(root, session_id)
+        _gate_only_turn(root, session_id, keep_open=is_harness_message(text))
         return None
 
     arm, policy_id = "champion", None

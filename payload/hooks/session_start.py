@@ -56,8 +56,11 @@ def restore(root, sid):
     turn = _boot.read_turn(root, sid)
     if not turn:
         return ""
-    bits = ["Restored after compaction - the turn in progress: \"%s\" (level %s, risk %s)."
-            % (turn.get("prompt", ""), turn.get("level"), turn.get("risk"))]
+    if turn.get("gate_only"):            # short/harness prompt: nothing was classified
+        bits = ["Restored after compaction - work in progress since the last prompt."]
+    else:
+        bits = ["Restored after compaction - the turn in progress: \"%s\" (level %s, risk %s)."
+                % (turn.get("prompt", ""), turn.get("level"), turn.get("risk"))]
     if turn.get("skills"):
         bits.append("Its skills (re-sent on the next prompt; reload now with "
                     "`aos skills show <name>`): %s." % ", ".join(turn["skills"][:8]))

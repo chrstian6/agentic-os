@@ -96,6 +96,18 @@ CLAIM = re.compile(r"\b(tests? (now )?pass(es|ed|ing)?|all (tests )?(green|passi
                    r"fixed and tested|build (passes|succeeds))\b", re.I)
 
 
+NEGATION = re.compile(r"(\b(not|never|no|without|yet to be)\b|n't)\W*(\w+\W+){0,2}$", re.I)
+
+
+def _claim(text):
+    """The first success claim that is not negated ("hasn't been verified" is honesty)."""
+    for m in CLAIM.finditer(text):
+        clause = re.split(r"[.;:!?\n]", text[max(0, m.start() - 40):m.start()])[-1]
+        if not NEGATION.search(clause):
+            return m.group(0)
+    return None
+
+
 def _cfg(root):
     try:
         with open(os.path.join(root, "config", "auto.json")) as fh:
@@ -143,10 +155,10 @@ def proof_gap(events, last_message=""):
                 "check (test, build, script, request) and report its command and output. "
                 "If nothing can be run, say so explicitly and mark the change unverified."
                 % ", ".join(unrun))
-    if last_run < 0 and last_message and CLAIM.search(last_message):
+    claim = _claim(last_message) if last_run < 0 and last_message else None
+    if claim:
         return ("No proof: the reply claims \"%s\" but nothing was run this turn. Run the "
-                "check and quote its output, or restate the claim as unverified."
-                % CLAIM.search(last_message).group(0))
+                "check and quote its output, or restate the claim as unverified." % claim)
     return None
 
 

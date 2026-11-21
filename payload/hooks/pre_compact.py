@@ -27,8 +27,9 @@ def main():
     out = [KEEP]
     turn = _boot.read_turn(root, sid)
     if turn:
-        out.append('\nTurn in progress (from Agentic OS state): "%s" - level %s, risk %s.'
-                   % (turn.get("prompt", ""), turn.get("level"), turn.get("risk")))
+        if not turn.get("gate_only"):
+            out.append('\nTurn in progress (from Agentic OS state): "%s" - level %s, risk %s.'
+                       % (turn.get("prompt", ""), turn.get("level"), turn.get("risk")))
         ev = _boot.session_events(root, sid, since=turn.get("started", 0))
         files = sorted({e["path"] for e in ev if e.get("path")})[-15:]
         runs = ["%s%s" % (e["cmd"], "" if e.get("ok", True) else " [FAILED]")
