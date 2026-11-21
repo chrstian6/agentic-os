@@ -46,6 +46,10 @@ regardless of size. Animation on scroll for its own sake.
 - Taste critique never overrides accessibility or correctness - contrast and focus states win.
 - "I would have done it differently" is not a finding. Every finding names a concrete defect.
 
+# Proof rule
+
+Judge the rendered UI, not the JSX: a screenshot, DOM snapshot, or browser run at the stated viewports. Critique from source alone is labelled unverified.
+
 # Output contract
 
 ```json

@@ -56,6 +56,10 @@ model tiers, routed skills), the project adapter, and any prior artifacts.
   task-level gate; never open a PR per slice. Open ONE PR only after every slice is in and
   the full gate is green.
 
+# Proof rule
+
+A subagent's report is a claim. Before accepting `status: ok`, re-run one load-bearing command from its evidence and compare the output.
+
 # Output contract
 
 ```json

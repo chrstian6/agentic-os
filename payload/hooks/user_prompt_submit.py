@@ -60,6 +60,18 @@ def task_text(prompt, cfg):
     return (text[:cap // 2] + " " + text[-cap // 2:])
 
 
+HARNESS_MARKERS = ("<task-notification", "<system-reminder", "<side-sessions-event",
+                   "<ci-monitor-event", "[Subagent hand-back]")
+
+
+def is_harness_message(text):
+    """Task notifications and subagent hand-backs arrive through the prompt hook too.
+    They are not a new task: classifying one re-plans the turn and re-sends skills."""
+    head = text[:300]
+    return any(head.startswith(m) or m == "[Subagent hand-back]" and m in head
+               for m in HARNESS_MARKERS)
+
+
 def _body(path):
     """Skill text without its frontmatter."""
     try:
@@ -124,6 +136,8 @@ def build_context(root, prompt, session_id=None):
         return None
     if any(text.startswith(p) for p in cfg.get("skip_prefixes", [])):
         return None
+    if is_harness_message(text):
+        return None
 
     arm, policy_id = "champion", None
     try:
@@ -156,14 +170,12 @@ def build_context(root, prompt, session_id=None):
         for name in stage["skills"]:
             if name not in skills_planned:
                 skills_planned.append(name)
-    try:
-        with open(os.path.join(root, "state", "current_turn.json"), "w") as fh:
-            json.dump({"started": time.time(), "prompt": subject[:300], "level": level,
-                       "risk": risk["level"], "depth": c["depth"], "skills": skills_planned,
-                       "agents": [s["agent"] for s in plan["stages"]],
-                       "arm": arm, "policy_id": policy_id}, fh)
-    except (IOError, OSError):
-        pass
+    _boot.write_turn(root, session_id, {
+        "started": time.time(), "prompt": subject[:300], "level": level,
+        "risk": risk["level"], "depth": c["depth"], "skills": skills_planned,
+        "agents": [s["agent"] for s in plan["stages"]],
+        "models": {s["agent"]: s["model"] for s in plan["stages"]},
+        "arm": arm, "policy_id": policy_id})
 
     head = ["[Agentic OS] level %d/5, risk %s, workflow depth %d."
             % (level, risk["level"], c["depth"])]
@@ -183,7 +195,8 @@ def build_context(root, prompt, session_id=None):
     lines = list(head)
     lines.append("Workflow: %s." % " -> ".join(plan["workflow"]))
     if plan["delegate"]:
-        tier = {s["agent"]: s["tier"] for s in plan["stages"]}
+        # the Agent tool takes `model` (haiku|sonnet|opus): name that, not the tier label
+        tier = {s["agent"]: "model=%s" % s["model"] for s in plan["stages"]}
         steps = []
         for i, ph in enumerate(plan.get("phases") or [], 1):
             who = ", ".join("%s (%s)" % (d, tier.get(a, "?")) for a, d in zip(ph["agents"], ph["dispatch"]))
@@ -195,7 +208,9 @@ def build_context(root, prompt, session_id=None):
                 who += ", in ONE message"
             steps.append("%d) %s: %s" % (i, ph["name"], who))
         lines.append("DISPATCH in phases, do not implement directly: %s. Max %d subagents in "
-                     "flight. Each brief: MISSION / CONTEXT / SUCCESS / FORBIDDEN / EVIDENCE. "
+                     "flight. Pass each model= value as the Agent call's `model`. "
+                     "Each brief: MISSION / CONTEXT / SUCCESS / FORBIDDEN / EVIDENCE "
+                     "(EVIDENCE = commands run and their output, not files read). "
                      "You stay accountable for the result." % ("; ".join(steps), plan.get("max_parallel", 3)))
     elif plan.get("fan_out"):
         lines.append(

@@ -151,7 +151,9 @@ def test_stop_hook_records_only_supported_observations():
             _run_in(root, "post_tool_use.py",
                     {"tool_name": "Edit", "tool_input": {"file_path": "lib/api/route%d.ts" % i},
                      "tool_response": {}})
-        _run_in(root, "stop.py", {})
+        # four edits, no run: the proof gate blocks first, the continued stop is measured
+        assert _run_in(root, "stop.py", {})["decision"] == "block"
+        _run_in(root, "stop.py", {"stop_hook_active": True})
         kinds = [r[0] for r in sqlite3.connect(os.path.join(root, "state", "learning.db"))
                  .execute("SELECT kind FROM observations")]
         # level 1 that edited four files, backend files with no backend skill, no test run

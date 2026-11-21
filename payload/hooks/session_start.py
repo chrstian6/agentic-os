@@ -36,9 +36,54 @@ def _stale_prs(cwd):
         return ""
 
 
+def _forget_seen(root, sid):
+    """Compaction and /clear drop the skill text from context; the prompt hook must
+    re-send it instead of naming it as 'still in force'."""
+    path = os.path.join(root, "state", "session_skills.json")
+    try:
+        with open(path) as fh:
+            data = json.load(fh)
+        if data.pop(sid, None) is not None:
+            with open(path + ".tmp", "w") as fh:
+                json.dump(data, fh)
+            os.replace(path + ".tmp", path)
+    except (IOError, OSError, ValueError):
+        pass
+
+
+def restore(root, sid):
+    """After compaction: the plan the summary may have flattened, from disk."""
+    turn = _boot.read_turn(root, sid)
+    if not turn:
+        return ""
+    bits = ["Restored after compaction - the turn in progress: \"%s\" (level %s, risk %s)."
+            % (turn.get("prompt", ""), turn.get("level"), turn.get("risk"))]
+    if turn.get("skills"):
+        bits.append("Its skills (re-sent on the next prompt; reload now with "
+                    "`aos skills show <name>`): %s." % ", ".join(turn["skills"][:8]))
+    ev = _boot.session_events(root, sid, since=turn.get("started", 0), main_only=True)
+    files = sorted({e["path"] for e in ev if e.get("path")})[-10:]
+    runs = [e["cmd"] for e in ev if e.get("cmd")][-5:]
+    if files:
+        bits.append("Files touched so far: %s." % ", ".join(files))
+    if runs:
+        bits.append("Last commands run: %s." % " | ".join(runs))
+    return " ".join(bits)
+
+
 def main():
     root = _boot.load()
-    cwd = _boot.payload().get("cwd") or os.getcwd()
+    data = _boot.payload()
+    cwd = data.get("cwd") or os.getcwd()
+    sid, source = data.get("session_id"), data.get("source") or "startup"
+    if sid and source in ("compact", "clear"):
+        _forget_seen(root, sid)
+    if source == "compact":
+        text = restore(root, sid) if sid else ""
+        if text:
+            _boot.emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
+                                               "additionalContext": text}})
+        return 0
     try:
         from runtime import learning, queue
     except Exception:
@@ -65,17 +110,12 @@ def main():
     try:
         old = queue.stale(queue.connect())
         if old:
-            bits.append("Stale queue: %d tasks idle >7d (ids %s). Run `aos queue stale` to review." %
-                        (len(old), ",".join(str(t["id"]) for t in old)))
-        if len(queue.ready(queue.connect())) >= 4:
-            bits.append("Many ready tasks: run `aos queue plan` for parallel waves "
-                        "(small tasks batched per builder) instead of one pipeline each.")
+            bits.append("%d queued tasks idle >7d (`aos queue stale`)." % len(old))
     except Exception:
         pass
     pr = _stale_prs(cwd)
     if pr:
         bits.append(pr)
-    bits.append("Run `aos plan \"<task>\"` before non-trivial work; guards run automatically.")
     _boot.emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
                                        "additionalContext": " ".join(bits)}})
     return 0

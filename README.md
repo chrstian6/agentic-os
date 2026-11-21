@@ -137,7 +137,7 @@ You can still plan by hand, for a sub-task or to re-plan in the middle of a turn
 | Skills | `payload/skills/**/SKILL.md` | 58 skills. Installed doesn't mean loaded: the router picks the minimum set per task |
 | Runtime | `payload/runtime/*.py` | registry, router, classifier, model routing, queue, workflow, artifacts, guards, learning, metrics |
 | Config | `payload/config/*.json` | classifier weights, risk factors, guard rules, model tiers, workflow depths, tool policy |
-| Hooks | `payload/hooks/*.py` | UserPromptSubmit auto-plan, PreToolUse guard, PostToolUse log, Stop measurement, SessionStart context |
+| Hooks | `payload/hooks/*.py` | UserPromptSubmit auto-plan, PreToolUse guard, PostToolUse log, Stop/SubagentStop proof gate + measurement, PreCompact summary guidance, SessionStart context + compaction recovery |
 | Installer | `installer/installer.py` | manifest-based ownership: install, update, uninstall, doctor, status, drift |
 | Tests | `tests/` | 136 tests: runtime, routing, queue, guard bypass, learning, installer, four ecosystem fixtures |
 

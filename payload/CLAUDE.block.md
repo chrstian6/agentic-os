@@ -26,8 +26,10 @@ risk delegates and its first direct edit is intercepted. Brief builders with
 
 ## Invariants
 
-1. **Evidence over assertion.** Never claim a test passes without the command and its
-   output. Never claim a change works without having run it. Say "assumed" when you assumed.
+1. **Proof over assertion.** Never claim a test passes without the command and its
+   output. Never claim a change works without having run it - reading code proves what it
+   says, not what it does. Say "assumed" when you assumed. The proof gate at Stop and
+   SubagentStop enforces the run.
 2. **Scope is the user's.** Deliver everything asked. Do not narrow it, do not widen it. If
    part is blocked, finish the rest and say exactly what is undone and why.
 3. **Root cause, not symptom.** Grep every caller before fixing; fix where they converge.

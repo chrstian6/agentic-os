@@ -29,31 +29,6 @@ DOMAIN_SKILL = [
 ]
 
 
-def _read_turn(root):
-    try:
-        with open(os.path.join(root, "state", "current_turn.json")) as fh:
-            return json.load(fh)
-    except (IOError, OSError, ValueError):
-        return None
-
-
-def _events_since(root, started):
-    out = []
-    path = os.path.join(root, "state", "events.jsonl")
-    try:
-        with open(path) as fh:
-            for line in fh:
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if rec.get("at", 0) >= started:
-                    out.append(rec)
-    except (IOError, OSError):
-        pass
-    return out
-
-
 def summarize(turn, events):
     paths = [e.get("path", "") for e in events if e.get("path")]
     cmds = [e.get("cmd", "") for e in events if e.get("cmd")]
@@ -115,19 +90,86 @@ def observations(turn, s):
     return out
 
 
+DOC_EXT = (".md", ".mdx", ".txt", ".rst", ".adoc")
+CLAIM = re.compile(r"\b(tests? (now )?pass(es|ed|ing)?|all (tests )?(green|passing)|"
+                   r"(it|this|everything) (now )?works|verified|confirmed working|"
+                   r"fixed and tested|build (passes|succeeds))\b", re.I)
+
+
+def _cfg(root):
+    try:
+        with open(os.path.join(root, "config", "auto.json")) as fh:
+            return json.load(fh)
+    except (IOError, OSError, ValueError):
+        return {}
+
+
+def proof_gap(events, last_message=""):
+    """Why this turn has not proven its work, or None.
+
+    Reading code shows what the code says, not what it does. Two mechanical signals:
+    a code edit with no command run after it, and a success claim with no command
+    run at all. Docs-only edits need no run.
+    """
+    last_run, last_edit, edited = -1, -1, []
+    for i, e in enumerate(events):
+        if e.get("cmd"):
+            last_run = i
+        path = e.get("path") or ""
+        if e.get("tool") in ("Edit", "Write", "MultiEdit", "NotebookEdit") and path \
+                and not path.lower().endswith(DOC_EXT):
+            last_edit = i
+            if last_run < i:
+                edited.append(path)
+    if last_edit > last_run:
+        unrun = sorted({p for p in edited})[-5:]
+        return ("No proof: %s changed after the last command run. Run the narrowest real "
+                "check (test, build, script, request) and report its command and output. "
+                "If nothing can be run, say so explicitly and mark the change unverified."
+                % ", ".join(unrun))
+    if last_run < 0 and last_message and CLAIM.search(last_message):
+        return ("No proof: the reply claims \"%s\" but nothing was run this turn. Run the "
+                "check and quote its output, or restate the claim as unverified."
+                % CLAIM.search(last_message).group(0))
+    return None
+
+
 def main():
     root = _boot.load()
-    _boot.payload()
-    turn = _read_turn(root)
-    if not turn:
+    data = _boot.payload()
+    sid = data.get("session_id")
+    sub = data.get("hook_event_name") == "SubagentStop"
+    turn = _boot.read_turn(root, sid)
+    if not turn and not sub:
         return 0
+    since = (turn or {}).get("started", 0)
+    gate = _cfg(root).get("proof_gate", "block")
+
+    if sub:
+        agent_id = data.get("agent_id")
+        if not agent_id or gate == "off" or data.get("stop_hook_active"):
+            return 0
+        gap = proof_gap(_boot.session_events(root, sid, since=since, agent_id=agent_id),
+                        data.get("last_assistant_message") or "")
+        if gap:
+            _boot.emit({"decision": "block", "reason": "[agentic-os proof gate] " + gap})
+        return 0
+
+    main_events = _boot.session_events(root, sid, since=since, main_only=True)
+    if gate != "off" and not data.get("stop_hook_active"):
+        gap = proof_gap(main_events, data.get("last_assistant_message") or "")
+        if gap:
+            # keep the turn: the stop that follows the proof is the one measured
+            _boot.emit({"decision": "block", "reason": "[agentic-os proof gate] " + gap})
+            return 0
+
     try:
         from runtime import learning, metrics
     except Exception:
         return 0
-    events = _events_since(root, turn.get("started", 0))
+    events = _boot.session_events(root, sid, since=since)
     if not events:
-        os.remove(os.path.join(root, "state", "current_turn.json"))
+        _boot.drop_turn(root, sid)
         return 0
     s = summarize(turn, events)
 
@@ -145,10 +187,7 @@ def main():
     lcon = learning.connect()
     for kind, key in observations(turn, s):
         learning.observe(lcon, None, kind, key)
-    try:
-        os.remove(os.path.join(root, "state", "current_turn.json"))
-    except OSError:
-        pass
+    _boot.drop_turn(root, sid)
     return 0
 
 

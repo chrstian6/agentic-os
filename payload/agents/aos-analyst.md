@@ -46,6 +46,10 @@ name every unknown rather than papering over it.
 - Acceptance criteria like "works correctly". Unverifiable criteria are not criteria.
 - Missing sibling callers, so the fix lands in one branch and the bug survives elsewhere.
 
+# Proof rule
+
+For a bug, reproduce it (command, request, or failing test) and quote the output before writing the spec. Mark anything you only read as unverified.
+
 # Output contract
 
 ```json

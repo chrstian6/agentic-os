@@ -71,6 +71,10 @@ you did.
   framework streaming/Suspense over hand-rolled loading state, stdlib over a new
   dependency.
 
+# Proof rule
+
+Every `evidence` entry for behaviour is `command -> observed output` from a run after your last edit. A file you read is context, not proof. Nothing runnable? Set status `partial` and name what would prove it.
+
 # Output contract
 
 ```json

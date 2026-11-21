@@ -39,6 +39,10 @@ Answer the specific questions posed. Do not produce a literature review.
 - Citing documentation for a major version the project does not use.
 - Returning ten options when the task needs one recommendation.
 
+# Proof rule
+
+Every finding cites a source you opened (URL or path:line) or a snippet you ran against the installed version. Memory is not a source.
+
 # Output contract
 
 ```json

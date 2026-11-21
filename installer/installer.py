@@ -317,10 +317,13 @@ class Install(object):
         hooks = data.setdefault("hooks", {})
         wanted = [
             ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre_tool_use.py"),
-            ("PostToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "post_tool_use.py"),
+            # Agent|Task: delegations must be logged or agents_used is always 0
+            ("PostToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit|Agent|Task", "post_tool_use.py"),
             ("SessionStart", None, "session_start.py"),
             ("UserPromptSubmit", None, "user_prompt_submit.py"),
             ("Stop", None, "stop.py"),
+            ("SubagentStop", None, "stop.py"),
+            ("PreCompact", None, "pre_compact.py"),
         ]
         written = []
         # $CLAUDE_PROJECT_DIR is what Claude Code sets for every hook, and it follows

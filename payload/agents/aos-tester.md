@@ -44,6 +44,10 @@ them and report exactly what happened.
 - Asserting on log strings instead of state.
 - A "passes" claim from reading the code rather than running it.
 
+# Proof rule
+
+Run every test you write, red first then green, and quote the real output. A test you did not run is not evidence.
+
 # Output contract
 
 ```json

@@ -33,15 +33,11 @@ def _cfg(root):
         return {}
 
 
-def _turn(root):
-    try:
-        with open(os.path.join(root, "state", "current_turn.json")) as fh:
-            return json.load(fh)
-    except (IOError, OSError, ValueError):
-        return None
+def _turn(root, sid=None):
+    return _boot.read_turn(root, sid)
 
 
-def _mark_enforced(root, turn, sig):
+def _mark_enforced(root, turn, sig, sid=None):
     """Remember *which* call was intercepted, not merely that one was.
 
     The same tool call is evaluated more than once - this hook, plus any project
@@ -50,27 +46,13 @@ def _mark_enforced(root, turn, sig):
     still let through: the intent is one interception per turn, not a blockade.
     """
     turn["delegation_enforced"] = sig
-    try:
-        with open(os.path.join(root, "state", "current_turn.json"), "w") as fh:
-            json.dump(turn, fh)
-    except (IOError, OSError):
-        pass
+    _boot.write_turn(root, sid, turn)
 
 
-def _delegated_already(root, started):
+def _delegated_already(root, started, sid=None):
     """Did this turn dispatch a subagent before reaching for the file?"""
-    try:
-        with open(os.path.join(root, "state", "events.jsonl")) as fh:
-            for line in fh:
-                try:
-                    rec = json.loads(line)
-                except ValueError:
-                    continue
-                if rec.get("at", 0) >= started and _boot.is_delegation(rec.get("tool")):
-                    return True
-    except (IOError, OSError):
-        pass
-    return False
+    return any(_boot.is_delegation(r.get("tool"))
+               for r in _boot.session_events(root, sid, since=started))
 
 
 def _signature(tool, tool_input):
@@ -78,7 +60,7 @@ def _signature(tool, tool_input):
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
 
-def delegation_check(root, tool, tool_input=None):
+def delegation_check(root, tool, tool_input=None, sid=None):
     """At high levels, the first direct edit of a turn is intercepted.
 
     The injected plan is prose and prose loses to convenience - measured: agents_used was
@@ -92,7 +74,7 @@ def delegation_check(root, tool, tool_input=None):
     floor = cfg.get("enforce_delegation_from_level", 4)
     if mode == "off" or not cfg.get("enabled", True) :
         return None
-    turn = _turn(root)
+    turn = _turn(root, sid)
     if not turn:
         return None
     # Single mode: the main thread does ordinary work itself; only a turn classified
@@ -106,9 +88,9 @@ def delegation_check(root, tool, tool_input=None):
         return None                      # a different call, later in the same turn
     if int(turn.get("level", 1)) < int(floor) and not (risky and cfg.get("agent_mode") == "single"):
         return None
-    if not already and _delegated_already(root, turn.get("started", 0)):
+    if not already and _delegated_already(root, turn.get("started", 0), sid):
         return None
-    _mark_enforced(root, turn, sig)
+    _mark_enforced(root, turn, sig, sid)
     agents = [a for a in turn.get("agents", []) if a not in ("orchestrator", "router")]
     # One resolver, not a third inline prefix: the hook text and `aos plan` said
     # different things for the same stage until these were centralised.
@@ -141,7 +123,7 @@ def main():
         from runtime import guards
     except Exception:
         return 0
-    verdict = delegation_check(_boot.load(), tool, ti)
+    verdict = delegation_check(_boot.load(), tool, ti, data.get("session_id"))
     if not verdict and tool == "Bash":
         verdict = guards.check(ti.get("command", ""), {"tool": tool})
     elif not verdict and tool in WRITE_TOOLS:

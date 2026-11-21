@@ -24,7 +24,8 @@ Every report, every status claim, every "done". Always loaded.
 ## When it does not apply
 
 Never unloaded, but it does not mean "run a command for every sentence". Reading a file
-is evidence. Re-running the suite to confirm a comment is not.
+is evidence of what the code *says* - structure, callers, a config value. It is never
+evidence of what the code *does*. Re-running the suite to confirm a comment is waste.
 
 ## How to use it
 
@@ -34,6 +35,12 @@ Label every claim you make in a report as one of:
 - **Inferred** — it follows from something observed. State the observation it follows from.
 - **Assumed** — you have not checked. Say so, and say what checking would cost.
 
+**Proof, not codebase.** A claim about behaviour - it works, it is fixed, it renders, it
+returns X, it is faster - needs a *run*: a test, a build, a script, an HTTP request, a DB
+query, a screenshot or DOM assertion. Reading the diff and reasoning that it must work is
+Inferred at best. The Stop/SubagentStop proof gate sends you back when you edit code and
+run nothing after it, or claim success with nothing run.
+
 Rules:
 
 1. Never write "tests pass" without the command and its counts in the same report.
@@ -41,6 +48,10 @@ Rules:
 3. Quote real output. Paraphrased output hides the detail that mattered.
 4. When you correct yourself, state the new fact plainly; do not narrate the mistake.
 5. A subagent's report is a claim, not a fact. Spot-check the load-bearing parts.
+6. A check that cannot fail proves nothing. Prefer one you have seen fail (run it red
+   first, or break the change and watch it go red).
+7. If nothing can be run (no runtime, no credentials), say so and mark the claim
+   unverified. Never upgrade it to Observed.
 
 ## Common mistakes
 

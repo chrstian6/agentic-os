@@ -17,6 +17,8 @@ def main():
            "ok": not resp.get("is_error", False) if isinstance(resp, dict) else True,
            "session": data.get("session_id"),
            "at": time.time()}
+    if data.get("agent_id"):              # set when the call comes from a subagent
+        rec["agent_id"] = str(data["agent_id"])[:64]
     path = ti.get("file_path") or ti.get("notebook_path")
     if path:
         rec["path"] = str(path)[-120:]

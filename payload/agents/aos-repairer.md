@@ -44,6 +44,10 @@ than retrying a variant of the same fix. After three, escalate with what you rul
 - Do not refactor surrounding code while repairing; keep the diff diagnostic.
 - Never silence a warning to make output clean.
 
+# Proof rule
+
+Reproduce the failure by running it before the fix and run the same command after it; quote both outputs. A diagnosis from reading code alone is a hypothesis.
+
 # Output contract
 
 ```json
