@@ -41,10 +41,19 @@ def test_intent_classifies_discuss_and_go():
                    "don't go there, just discuss the bug",
                    "we should not go ahead yet, what are the trade-offs?"):
         assert intent.is_discuss(report), report
-    # a neutral reply keeps the state; only go or an order changes it
-    assert intent.classify("no", previous=True) and intent.classify("wait", previous=True)
-    assert not intent.classify("go", previous=True)
-    assert not intent.classify("fix the typo in the footer text", previous=True)
+    # reports with no keyword at all are still discussion (discussion is the default)
+    for report in ("the checkout page is slow on safari",
+                   "users are complaining that notifications arrive twice",
+                   "why does the invoice total not include shipping?",
+                   "I noticed the admin rail overlaps the header on ipad",
+                   "the reserve approve button does nothing",
+                   "I don't like how the cards look on phones",
+                   "not yet, go over the options first", "no", "wait"):
+        assert intent.is_discuss(report), report
+    # the natural answers to "are we ready?" open edits
+    for ok in ("yes", "sure", "ok", "sounds good, proceed", "Lets go with option B",
+               "approve", "👍", "yes do that", "alright, build it", "go"):
+        assert intent.is_go(ok) and not intent.is_discuss(ok), ok
 
 
 def test_every_prompt_carries_the_voice_rule():
