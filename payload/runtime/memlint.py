@@ -12,8 +12,10 @@ import re
 from . import paths
 
 TICK = re.compile(r"`([^`\s]+)`")
-COUNT = re.compile(r"\b(\d+) skills\b")
-VERSION = re.compile(r"`?(\d+\.\d+\.\d+)`?")
+# a claim about the library size, not "load 3 skills max"
+COUNT = re.compile(r"\b(\d+) skills (?:live|are installed|installed|in the library)\b", re.I)
+VERSION = re.compile(r"\bversion\b\W{0,3}(\d+\.\d+\.\d+)", re.I)
+OS_NAME = re.compile(r"agentic|\baos\b", re.I)
 SKIP = set("<>*{}$~?[]|")
 # a line recording that a file is gone is history, not a stale claim
 GONE = re.compile(r"\b(delet|remov|retir|gone|supersed|no longer|was renamed|record only)", re.I)
@@ -22,7 +24,7 @@ GONE = re.compile(r"\b(delet|remov|retir|gone|supersed|no longer|was renamed|rec
 def _path_problem(token, project):
     if any(c in SKIP for c in token) or "://" in token or "/" not in token:
         return None
-    rel = re.sub(r":\d+(-\d+)?$", "", token).lstrip("./")
+    rel = re.sub(r"^\./", "", re.sub(r":\d+(-\d+)?$", "", token))
     first = rel.split("/")[0]
     if not first or not os.path.isdir(os.path.join(project, first)):
         return None  # another repo, a placeholder, or a path outside this tree
@@ -37,9 +39,12 @@ def lint(files, project, skill_count=None, version=None):
         except (IOError, OSError, UnicodeDecodeError):
             continue
         history = False  # inside a section whose heading marks it superseded / a record
+        fence = False    # "# comment" inside a code block is not a heading
         for n, line in enumerate(lines, 1):
             where = "%s:%d" % (os.path.relpath(f, project), n)
-            if line.startswith("#"):
+            if line.lstrip().startswith("```"):
+                fence = not fence
+            if line.startswith("#") and not fence:
                 history = bool(GONE.search(TICK.sub("", line)))
             near = TICK.sub("", line + " " + (lines[n] if n < len(lines) else ""))
             for tok in ([] if history or GONE.search(near) else TICK.findall(line)):
@@ -51,8 +56,7 @@ def lint(files, project, skill_count=None, version=None):
                     if int(m.group(1)) != skill_count:
                         problems.append({"kind": "count", "where": where,
                                          "detail": "says %s skills, registry has %d" % (m.group(1), skill_count)})
-            low = line.lower()
-            if version and ("agentic" in low or "aos" in low) and "version" in low:
+            if version and OS_NAME.search(line):
                 for v in VERSION.findall(line):
                     if v != version:
                         problems.append({"kind": "version", "where": where,

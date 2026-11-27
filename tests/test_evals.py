@@ -117,3 +117,42 @@ def test_tune_keeps_a_change_only_when_the_score_rises_and_logs_each_try():
         assert res["kept"] and open(cfg).read() == before
     finally:
         rm(d)
+
+
+def test_zero_cases_fail_loudly_never_score():
+    try:
+        evals.run([])
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an empty case set must not produce a score")
+
+
+def test_a_missing_required_skill_fails_the_route_case():
+    case = {"id": "m", "kind": "route", "prompt": "the checkout endpoint is slow, p95 is 2 seconds",
+            "must": [["builder/no-such-skill"]], "mustnot": []}
+    assert evals.run([case])["score"] == 0.0
+
+
+def test_a_check_that_raises_counts_as_a_failure():
+    evals.CHECKS["boom"] = lambda c: 1 / 0
+    try:
+        res = evals.run([{"id": "b", "kind": "boom", "prompt": "x"}])
+        assert res["score"] == 0.0 and "error" in res["failures"][0]["why"], res
+    finally:
+        del evals.CHECKS["boom"]
+
+
+def test_tune_override_reaches_the_router():
+    import shutil
+    from runtime import paths
+    d = tmpdir()
+    try:
+        cfg = os.path.join(d, "router.json")
+        shutil.copy(paths.config("router.json"), cfg)
+        cases = [c for c in evals.load_cases() if c["kind"] == "route"]
+        res = evals.tune(cases, "router.min_score", start=999, config_path=cfg,
+                         log_path=os.path.join(d, "t.jsonl"))
+        assert res["base_score"] < 100.0 and res["kept"], res
+    finally:
+        rm(d)

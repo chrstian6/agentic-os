@@ -59,14 +59,19 @@ def test_memory_lint_finds_known_stale_facts_and_is_quiet_on_clean():
     d = tmpdir()
     try:
         write(os.path.join(d, "app", "real.py"), "x = 1\n")
+        write(os.path.join(d, ".claude", "rules", "real.md"), "x\n")
+        os.makedirs(os.path.join(d, ".claude", "agentic-os"))
         doc = write(os.path.join(d, "CLAUDE.md"),
                     "See `app/real.py` and `app/gone.py`, and `other-repo/x.py`, `<id>/y.md`.\n"
-                    "There are 51 skills. Installed at `.claude/agentic-os`, version `1.8.3`.\n")
+                    "See `.claude/rules/missing.md`. Load 3 skills max. Agentic OS version 1.8.5, Python 3.11.4.\n"
+                    "51 skills live in the library. Installed at `.claude/agentic-os`, version `1.8.3`.\n"
+                    "## Removed files\n```bash\n# run tests\n```\n`app/old2.py`\n")
         probs = memlint.lint([doc], project=d, skill_count=58, version="1.8.5")
         kinds = sorted(p["kind"] for p in probs)
-        assert kinds == ["count", "path", "version"], probs
+        assert kinds == ["count", "path", "path", "version"], probs
+        assert any(".claude/rules/missing.md" in p["detail"] for p in probs), probs
         assert any("app/gone.py" in p["detail"] for p in probs)
-        write(doc, "See `app/real.py:12`. There are 58 skills. Version `1.8.5`.\n"
+        write(doc, "See `app/real.py:12`. 58 skills live here. Agentic OS version `1.8.5`.\n"
                    "`app/old.py` was deleted in the cleanup.\n")
         assert memlint.lint([doc], project=d, skill_count=58, version="1.8.5") == []
     finally:

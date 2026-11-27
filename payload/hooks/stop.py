@@ -162,6 +162,13 @@ def proof_gap(events, last_message=""):
     return None
 
 
+def _int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def handback_gap(reply, budget_tokens):
     """A subagent's reply lands in the lead's context; past the budget it costs more than it
     returns (Anthropic: condensed 1-2k token summaries). ~4 chars per token. 0 disables."""
@@ -191,7 +198,7 @@ def main():
         # the turn's start and hid a live subagent's edit from the gate.
         reply = data.get("last_assistant_message") or ""
         gap = proof_gap(_boot.session_events(root, sid, agent_id=agent_id), reply) \
-            or handback_gap(reply, int(_cfg(root).get("handback_tokens", 2000)))
+            or handback_gap(reply, _int(_cfg(root).get("handback_tokens"), 2000))
         _trace(root, "SubagentStop", sid, agent_id, gap)
         if gap:
             # Exit 2 + stderr, not JSON: measured live, a JSON block on SubagentStop was

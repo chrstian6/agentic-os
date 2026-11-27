@@ -191,18 +191,25 @@ def build_context(root, prompt, session_id=None):
         "models": {s["agent"]: s["model"] for s in plan["stages"]},
         "arm": arm, "policy_id": policy_id})
     progress = None
-    if level >= int(cfg.get("progress_from_level", 3)):
-        # Anthropic long-running harness: notes on disk, not in the window
-        # ponytail: never pruned; files are a few KB per session, add cleanup if state grows
+    try:
+        from_level = int(cfg.get("progress_from_level", 3))
+    except (TypeError, ValueError):
+        from_level = 3
+    if session_id and level >= from_level:
+        # Anthropic long-running harness: notes on disk, not in the window.
+        # The template is written once; later prompts add one Request line each.
+        # ponytail: never pruned; add cleanup if state/progress grows
         progress = _boot.progress_path(root, session_id)
         try:
             os.makedirs(os.path.dirname(progress), exist_ok=True)
             fresh = not os.path.exists(progress)
             with open(progress, "a") as fh:
                 if fresh:
-                    fh.write("# Progress (kept by Agentic OS; survives compaction)\n")
-                fh.write("\n## Request\n%s\n\n## Acceptance\n\n## Proven (command -> result)\n\n"
-                         "## Next\n" % subject[:1000])
+                    fh.write("# Progress (kept by Agentic OS; survives compaction)\n"
+                             "\n## Request\n%s\n\n## Acceptance\n\n## Proven (command -> result)\n\n"
+                             "## Next\n" % subject[:1000])
+                else:
+                    fh.write("\n## Request (later)\n%s\n" % subject[:300])
         except (IOError, OSError):
             progress = None
     try:  # the eval's raw material; local state only, never sent anywhere

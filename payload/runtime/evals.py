@@ -83,6 +83,8 @@ CHECKS = {"route": _check_route, "risk": _check_risk, "delegate": _check_delegat
 
 
 def run(cases):
+    if not cases:  # "nothing measured" must never read as a score
+        raise ValueError("no eval cases loaded (missing or corrupt evals/cases.json?)")
     by_kind, failures, passed = {}, [], 0
     for c in cases:
         kind = c.get("kind")

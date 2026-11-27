@@ -266,7 +266,11 @@ def main(argv=None):
                     "challenger": metrics.aggregate(con, arm="challenger")})
 
     if a.cmd == "eval":
-        res = evals.run(evals.load_cases())
+        cases = evals.load_cases()
+        if not cases:
+            out({"error": "no eval cases loaded (missing or corrupt evals/cases.json?)"})
+            return 1
+        res = evals.run(cases)
         if a.save_baseline:
             evals.save_baseline(res)
         res["baseline"] = evals.compare(res)
@@ -374,6 +378,9 @@ def main(argv=None):
             if unknown:
                 return out({"error": "unknown knob(s) %s; known: %s" % (unknown, sorted(evals.KNOBS))}) or 2
             cases = evals.load_cases()
+            if not cases:
+                out({"error": "no eval cases loaded; nothing to tune against"})
+                return 1
             return out([evals.tune(cases, k, apply=a.apply) for k in knobs])
         if act == "cycle":
             return out(learning.cycle(con, metrics.connect(), auto_promote=not a.dry_run))
