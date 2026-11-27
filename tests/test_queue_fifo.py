@@ -22,10 +22,85 @@ def test_claim_takes_the_oldest_ready_task_and_never_the_same_twice():
         a = queue.add(con, "first job")
         b = queue.add(con, "second job")
         other = queue.connect(path)          # a second session on the same queue
-        assert queue.claim(con)["id"] == a
-        assert queue.claim(other)["id"] == b
+        stale = queue.ready(con)             # session 1 reads the queue...
+        assert queue.claim(other)["id"] == a  # ...session 2 claims the head first
+        assert queue._take(con, stale)["id"] == b, "the compare-and-set must skip a taken task"
         assert queue.claim(con) is None
         assert queue.get(con, a)["status"] == "RUNNING"
+    finally:
+        rm(d)
+
+
+def test_cancelled_then_completed_prerequisite_releases_its_dependent():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        a = queue.add(con, "prepare fixtures")
+        b = queue.add(con, "run the import", depends_on=[a])
+        queue.set_status(con, a, "CANCELLED")
+        queue.set_status(con, a, "COMPLETED")        # straight back, no reopen step
+        assert b in [t["id"] for t in queue.ready(con)], queue.get(con, b)
+    finally:
+        rm(d)
+
+
+def test_dependent_stays_blocked_while_another_prerequisite_is_cancelled():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        a = queue.add(con, "prepare fixtures")
+        c = queue.add(con, "prepare data")
+        b = queue.add(con, "run the import", depends_on=[a, c])
+        queue.set_status(con, a, "CANCELLED")
+        queue.set_status(con, c, "CANCELLED")
+        queue.set_status(con, c, "QUEUED", "reopened")     # reopen in the other order
+        assert queue.get(con, b)["status"] == "BLOCKED"      # a is still cancelled
+        queue.set_status(con, a, "QUEUED", "reopened")
+        queue.set_status(con, a, "COMPLETED")
+        queue.set_status(con, c, "COMPLETED")
+        assert b in [t["id"] for t in queue.ready(con)], queue.get(con, b)
+    finally:
+        rm(d)
+
+
+def test_failed_prerequisite_does_not_requeue_running_work():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        a = queue.add(con, "prepare fixtures")
+        b = queue.add(con, "run the import", depends_on=[a])
+        queue.set_status(con, a, "COMPLETED")
+        assert queue.claim(con)["id"] == b
+        queue.set_status(con, a, "FAILED", "rework")
+        assert queue.get(con, b)["status"] == "RUNNING"
+    finally:
+        rm(d)
+
+
+def test_claim_never_restarts_a_paused_task():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        a = queue.add(con, "paused job")
+        b = queue.add(con, "live job")
+        queue.set_status(con, a, "PAUSED")
+        assert queue.claim(con)["id"] == b
+        assert queue.claim(con) is None and queue.get(con, a)["status"] == "PAUSED"
+    finally:
+        rm(d)
+
+
+def test_reopen_releases_even_after_a_later_note():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        a = queue.add(con, "prepare fixtures")
+        b = queue.add(con, "run the import", depends_on=[a])
+        queue.set_status(con, a, "CANCELLED")
+        queue.log(con, b, "status", "note: owner pinged")
+        queue.set_status(con, a, "QUEUED", "reopened")
+        queue.set_status(con, a, "COMPLETED")
+        assert b in [t["id"] for t in queue.ready(con)]
     finally:
         rm(d)
 
@@ -97,7 +172,7 @@ def test_add_with_missing_dependency_leaves_no_half_task():
         except (ValueError, sqlite3.IntegrityError):
             pass
         assert queue.stats(con)["total"] == 0
-        assert queue.add(con, "next one") == 1 or queue.stats(con)["total"] == 1
+        assert queue.add(con, "next one") == 1, "a refused add must not burn an id"
     finally:
         rm(d)
 
@@ -113,6 +188,20 @@ def test_waves_keep_fifo_order_and_carry_a_model():
         assert units[0]["tasks"][0]["id"] == big, units   # queued first, dispatched first
         assert units[1]["tasks"][0]["id"] == small
         assert all(u.get("model") in ("haiku", "sonnet", "opus") for u in units), units
+    finally:
+        rm(d)
+
+
+def test_waves_never_let_a_small_task_overtake_an_earlier_heavy_one():
+    path, d = _db()
+    try:
+        con = queue.connect(path)
+        ids = [queue.add(con, t) for t in ("fix a typo in the footer text", HEAVY,
+                                           "fix a typo in the header text", HEAVY,
+                                           "fix a typo in the about text")]
+        plan = workflow.queue_waves(queue.ready(con))
+        order = [r["id"] for w in plan["waves"] for u in w for r in u["tasks"]]
+        assert order == ids, plan
     finally:
         rm(d)
 
@@ -134,6 +223,10 @@ def test_agent_dispatch_without_the_planned_model_is_sent_back():
         # the planned model, or a stronger one, passes
         assert _agent(root, "S", subagent_type="aos-reviewer", prompt="x", model="opus") is None
         assert _agent(root, "S", subagent_type="aos-tester", prompt="x", model="opus") is None
+        assert _agent(root, "S", subagent_type="aos-tester", prompt="x", model="strong") is None
+        for bad in ("inherit", "fast"):         # unrankable or too weak: fail closed
+            out = _agent(root, "S", subagent_type="aos-tester", prompt="x", model=bad)
+            assert out and out["hookSpecificOutput"]["permissionDecision"] == "deny", (bad, out)
         # agents outside the roster and sessions with no plan are not touched
         assert _agent(root, "S", subagent_type="Explore", prompt="x") is None
         assert _agent(root, "NOPLAN", subagent_type="aos-tester", prompt="x") is None

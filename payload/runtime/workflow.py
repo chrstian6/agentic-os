@@ -97,6 +97,7 @@ def queue_waves(tasks, policies=()):
             batch["tasks"].append(row)
         else:
             units.append({"agent": "aos-builder", "tasks": [row]})
+            batch = None                 # a later small task must not join an earlier batch
     for u in units:
         lvl = max(r["level"] for r in u["tasks"])
         risk = max((r["risk"] for r in u["tasks"]), key=lambda k: rank.get(k, 0))

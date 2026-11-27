@@ -10,7 +10,7 @@
   "quiet_below_level": 2,
   "inline_skill_budget_chars": 10000,
   "max_inlined_skills": 4,
-  "note": "Controls the UserPromptSubmit/PreToolUse automation. quiet_below_level: prompts below this level get a one-line note. enforce_delegation_from_level: at or above this level, the first direct file edit of a turn is intercepted and the builder agent is named instead (enforce_mode: ask | deny | off). Set enabled=false to go back to calling `aos plan` by hand. proof_gate: block | off - at Stop/SubagentStop, a code edit with no command run after it, or a success claim with nothing run, sends the agent back once to produce runtime proof.",
+  "note": "Controls the UserPromptSubmit/PreToolUse automation. quiet_below_level: prompts below this level get a one-line note. enforce_delegation_from_level: at or above this level, the first direct file edit of a turn is intercepted and the builder agent is named instead (enforce_mode: ask | deny | off). Set enabled=false to go back to calling `aos plan` by hand. proof_gate: block | off - at Stop/SubagentStop, a code edit with no command run after it, or a success claim with nothing run, sends the agent back once to produce runtime proof. voice: true adds the owner's reply-style rule (brief, ASD-STE100, step-by-step for owner actions) to every prompt. discuss_gate: block | off - a prompt that presents an idea, bug or problem with no go word blocks file edits (scratch paths excepted) until a later prompt says go.",
   "enforce_delegation_from_level": 4,
   "enforce_mode": "ask",
   "classify_char_cap": 600,
@@ -32,5 +32,7 @@
   "fanout_from_level": 4,
   "max_parallel": 3,
   "batch_size": 3,
-  "proof_gate": "block"
+  "proof_gate": "block",
+  "voice": true,
+  "discuss_gate": "block"
 }

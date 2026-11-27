@@ -132,19 +132,22 @@ def ready(con):
 
 
 def claim(con):
-    """Take the oldest ready task (FIFO by id) and mark it RUNNING.
+    """Take the oldest ready, unpaused task (FIFO by id) and mark it RUNNING.
 
     Compare-and-set on the status, so two sessions sharing the queue never take the
     same task: the loser's UPDATE matches no row and it moves on to the next one.
     """
-    for row in ready(con):
+    return _take(con, [r for r in ready(con) if r["status"] != "PAUSED"])
+
+
+def _take(con, rows):
+    for row in rows:
         cur = con.execute("UPDATE tasks SET status='RUNNING', updated_at=? WHERE id=? AND status=?",
                           (util.now(), row["id"], row["status"]))
         if cur.rowcount == 1:
             log(con, row["id"], "status", "RUNNING claimed")
             con.commit()
-            row["status"] = "RUNNING"
-            return row
+            return dict(row, status="RUNNING")
         con.commit()
     return None
 
@@ -157,6 +160,20 @@ def set_status(con, task_id, status, detail=""):
         raise ValueError("unknown task %s" % task_id)
     con.execute("UPDATE tasks SET status=?, updated_at=? WHERE id=?", (status, util.now(), task_id))
     log(con, task_id, "status", "%s %s" % (status, detail))
+    if prev["status"] == "CANCELLED" and status != "CANCELLED":
+        # Reopened: release only the dependents this task's cancellation blocked.
+        for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)).fetchall():
+            last = con.execute("SELECT detail FROM events WHERE task_id=? AND kind='status'"
+                               " AND detail LIKE 'BLOCKED%' ORDER BY id DESC LIMIT 1",
+                               (row["task_id"],)).fetchone()
+            still = [x for x in blockers(con, row["task_id"]) if x["permanent"]]
+            by_cancel = last and last["detail"].startswith("BLOCKED prerequisite ") \
+                and last["detail"].endswith(" was cancelled")
+            if by_cancel and not still:
+                con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? "
+                            "WHERE id=? AND status='BLOCKED'", (util.now(), row["task_id"]))
+                log(con, row["task_id"], "status", "WAITING_DEPENDENCY prerequisite %s reopened"
+                    % task_id)
     if status == "COMPLETED":
         # wake dependents that were parked
         for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)):
@@ -175,20 +192,11 @@ def set_status(con, task_id, status, detail=""):
                             (util.now(), dep_id))
                 log(con, dep_id, "status",
                     "BLOCKED prerequisite %s was cancelled" % task_id)
-    if prev["status"] == "CANCELLED" and status not in TERMINAL:
-        # Reopened: release only the dependents this task's cancellation blocked.
-        reason = "BLOCKED prerequisite %s was cancelled" % task_id
-        for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)).fetchall():
-            last = con.execute("SELECT detail FROM events WHERE task_id=? AND kind='status'"
-                               " ORDER BY id DESC LIMIT 1", (row["task_id"],)).fetchone()
-            if last and last["detail"] == reason:
-                con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? "
-                            "WHERE id=? AND status='BLOCKED'", (util.now(), row["task_id"]))
-                log(con, row["task_id"], "status", "WAITING_DEPENDENCY prerequisite %s reopened"
-                    % task_id)
     if status in ("FAILED", "BLOCKED", "ESCALATED"):
         for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)):
-            con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? WHERE id=? AND status NOT IN ('COMPLETED','CANCELLED')",
+            # in-flight work is not yanked back: re-queuing it would let it run twice
+            con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? WHERE id=? AND status NOT IN"
+                        " ('COMPLETED','CANCELLED','RUNNING','TESTING','REPAIRING','REVIEWING','FINAL_VALIDATION')",
                         (util.now(), row["task_id"]))
     con.commit()
 
