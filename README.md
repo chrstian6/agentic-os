@@ -279,6 +279,7 @@ a later session:
 aos queue add "Build the CSV serializer"
 aos queue add "Test the CSV serializer" --depends-on 1
 aos queue ready              # what may run right now
+aos queue next               # claim the oldest ready task (FIFO), marks it RUNNING
 aos queue list
 aos queue set 1 COMPLETED    # dependents are released automatically
 ```

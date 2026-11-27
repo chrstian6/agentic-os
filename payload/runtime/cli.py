@@ -66,7 +66,7 @@ def main(argv=None):
     p.add_argument("--criteria", default="")
 
     p = sub.add_parser("queue")
-    p.add_argument("action", choices=["add", "list", "ready", "set", "get", "stats", "record", "stale", "cancel-stale", "plan"])
+    p.add_argument("action", choices=["add", "list", "ready", "set", "get", "stats", "record", "stale", "cancel-stale", "plan", "next"])
     p.add_argument("args", nargs="*")
     p.add_argument("--depends-on", default="")
     p.add_argument("--body", default="")
@@ -334,6 +334,8 @@ def main(argv=None):
             return out(queue.listing(con, args[0] if args else None))
         if act == "ready":
             return out(queue.ready(con))
+        if act == "next":
+            return out(queue.claim(con))
         if act == "get":
             return out(queue.get(con, int(args[0])))
         if act == "set":

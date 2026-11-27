@@ -107,6 +107,52 @@ def delegation_check(root, tool, tool_input=None, sid=None):
     }
 
 
+FAMILY = ("haiku", "sonnet", "opus")
+
+
+def _family(model):
+    low = str(model or "").lower()
+    return next((i for i, f in enumerate(FAMILY) if f in low), None)
+
+
+def model_check(root, tool, tool_input=None, sid=None):
+    """An aos-* dispatch must name a model at least as strong as the plan's.
+
+    The plan's model= was prose, and an Agent call without `model` silently inherits the
+    parent's (opus): a level-1 lookup billed as deep work, or a high-risk review on haiku.
+    Stronger than planned passes; missing or weaker is sent back with the right value.
+    """
+    if not _boot.is_delegation(tool):
+        return None
+    ti = tool_input or {}
+    sub = str(ti.get("subagent_type") or "")
+    if not sub.startswith("aos-") or _cfg(root).get("enforce_model", True) is False:
+        return None
+    turn = _turn(root, sid)
+    if not turn or turn.get("gate_only"):
+        return None
+    role = sub[4:]
+    planned = (turn.get("models") or {}).get(role)
+    if not planned:
+        from runtime import models
+        try:
+            planned = models.route(int(turn.get("level", 1)), turn.get("risk", "normal"), role)["model"]
+        except Exception:
+            return None
+    want, given = _family(planned), _family(ti.get("model"))
+    if want is None or (given is not None and given >= want):
+        return None
+    if ti.get("model") and given is None:
+        return None                          # a model name we cannot rank: trust the caller
+    return {"action": "BLOCK",
+            "reason": ("dispatch %s with model=%s (level %s, risk %s)%s. Re-send the same call "
+                       "with `model: \"%s\"`, or a stronger one."
+                       % (sub, planned, turn.get("level"), turn.get("risk"),
+                          "" if not ti.get("model") else "; %s is below that" % ti.get("model"),
+                          planned)),
+            "matches": [{"id": "delegation.model"}]}
+
+
 HANDBACK_TOOLS = ("SubagentHandback",)
 
 
@@ -163,7 +209,8 @@ def main():
         from runtime import guards
     except Exception:
         return 0
-    verdict = delegation_check(_boot.load(), tool, ti, data.get("session_id"))
+    verdict = model_check(root, tool, ti, data.get("session_id")) \
+        or delegation_check(_boot.load(), tool, ti, data.get("session_id"))
     if not verdict and tool == "Bash":
         verdict = guards.check(ti.get("command", ""), {"tool": tool})
     elif not verdict and tool in WRITE_TOOLS:
