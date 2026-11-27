@@ -185,8 +185,11 @@ def always_for(agent, reg):
     return [n for n in wanted if n in reg.get("skills", {})]
 
 
-def route(task_text, agent=None, budget=6, reg=None, adapter=None, policies=(), min_score=2.5):
+def route(task_text, agent=None, budget=6, reg=None, adapter=None, policies=(), min_score=None):
     reg = reg or load_registry()
+    if min_score is None:  # tunable: `aos learn tune --knob router.min_score`
+        cfg = util.load_json(paths.config("router.json"), default={}) or {}
+        min_score = float(cfg.get("min_score", 2.5))
     scores, why = score(task_text, agent, reg, adapter, policies)
     ranked = sorted([(s, n) for n, s in scores.items() if s >= min_score], reverse=True)
     picked = [n for _s, n in ranked[:budget]]

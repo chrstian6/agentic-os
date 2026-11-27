@@ -44,6 +44,12 @@ def turn_path(root, session_id=None):
     return os.path.join(root, "state", "turns", safe + ".json")
 
 
+def progress_path(root, session_id):
+    """Harness-owned notes for one session: request, proven, next. Survives compaction."""
+    safe = "".join(c for c in str(session_id or "anon") if c.isalnum() or c in "-_")[:80] or "anon"
+    return os.path.join(root, "state", "progress", safe + ".md")
+
+
 def read_turn(root, session_id=None):
     try:
         with open(turn_path(root, session_id)) as fh:

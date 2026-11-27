@@ -1,0 +1,338 @@
+{
+ "version": 1,
+ "note": "Fixed harness eval. Add cases; never edit one to make a change pass.",
+ "cases": [
+  {
+   "id": "route-auth-refactor",
+   "kind": "route",
+   "prompt": "refactor the auth middleware across the api, migrate sessions, and add integration tests",
+   "must": [
+    [
+     "builder/backend-engineering"
+    ],
+    [
+     "builder/security"
+    ],
+    [
+     "tester/integration-testing"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste"
+   ]
+  },
+  {
+   "id": "route-login-bug",
+   "kind": "route",
+   "prompt": "fix the login bug in the api",
+   "must": [
+    [
+     "repairer/systematic-debugging"
+    ],
+    [
+     "builder/backend-engineering"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste"
+   ]
+  },
+  {
+   "id": "route-pricing-ui",
+   "kind": "route",
+   "prompt": "add a pricing table component with tailwind",
+   "must": [
+    [
+     "builder/frontend-engineering"
+    ]
+   ],
+   "mustnot": [
+    "builder/backend-engineering",
+    "builder/security"
+   ]
+  },
+  {
+   "id": "route-slow-queue",
+   "kind": "route",
+   "prompt": "aos audit the agentic-os folder, i have a problem with it once the task is too many, too slow to accomplish the task and some prs tend to forget and goes stale",
+   "must": [
+    [
+     "builder/performance"
+    ]
+   ],
+   "mustnot": []
+  },
+  {
+   "id": "route-p95",
+   "kind": "route",
+   "prompt": "the checkout endpoint is slow, p95 is 2 seconds",
+   "must": [
+    [
+     "builder/performance"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste"
+   ]
+  },
+  {
+   "id": "route-invoice-date",
+   "kind": "route",
+   "prompt": "format the invoice date on the dashboard",
+   "must": [],
+   "mustnot": [
+    "builder/backend-engineering",
+    "builder/accessibility"
+   ]
+  },
+  {
+   "id": "route-rename",
+   "kind": "route",
+   "prompt": "rename the variable in the capital gains helper",
+   "must": [],
+   "mustnot": [
+    "builder/backend-engineering",
+    "builder/accessibility"
+   ]
+  },
+  {
+   "id": "route-ledger",
+   "kind": "route",
+   "prompt": "redesign the settlement service, migrate payouts to a new ledger schema",
+   "must": [
+    [
+     "shared/safe-tool-use"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste",
+    "builder/existing-project-redesign"
+   ]
+  },
+  {
+   "id": "route-dashboard-redesign",
+   "kind": "route",
+   "prompt": "redesign the jeweler dashboard page",
+   "must": [
+    [
+     "builder/design-taste",
+     "builder/existing-project-redesign"
+    ]
+   ],
+   "mustnot": [
+    "builder/backend-engineering"
+   ]
+  },
+  {
+   "id": "route-e2e",
+   "kind": "route",
+   "prompt": "write e2e tests for the bidding flow",
+   "must": [
+    [
+     "tester/e2e-testing"
+    ]
+   ],
+   "mustnot": [
+    "builder/backend-engineering"
+   ]
+  },
+  {
+   "id": "route-merge-pr",
+   "kind": "route",
+   "prompt": "merge the open PR and delete the branch",
+   "must": [
+    [
+     "shared/github-workflow"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste"
+   ]
+  },
+  {
+   "id": "route-red-ci",
+   "kind": "route",
+   "prompt": "ci is red on my pull request, fix the failing check and push",
+   "must": [
+    [
+     "shared/github-workflow"
+    ]
+   ],
+   "mustnot": []
+  },
+  {
+   "id": "route-no-gh-on-ui",
+   "kind": "route",
+   "prompt": "add a pricing table component with tailwind and a hover state",
+   "must": [],
+   "mustnot": [
+    "shared/github-workflow"
+   ]
+  },
+  {
+   "id": "route-no-gh-price",
+   "kind": "route",
+   "prompt": "update the product price display",
+   "must": [],
+   "mustnot": [
+    "shared/github-workflow"
+   ]
+  },
+  {
+   "id": "route-no-gh-lightbox",
+   "kind": "route",
+   "prompt": "fix the lightbox image",
+   "must": [],
+   "mustnot": [
+    "shared/github-workflow"
+   ]
+  },
+  {
+   "id": "route-research",
+   "kind": "route",
+   "prompt": "research how to improve agent delegation and memory management in the harness",
+   "must": [
+    [
+     "researcher/technical-research"
+    ]
+   ],
+   "mustnot": [
+    "builder/frontend-engineering",
+    "builder/component-architecture",
+    "builder/design-taste"
+   ]
+  },
+  {
+   "id": "risk-typo",
+   "kind": "risk",
+   "prompt": "fix a typo in the author bio",
+   "min": "normal",
+   "max": "normal"
+  },
+  {
+   "id": "risk-william",
+   "kind": "risk",
+   "prompt": "rename the william helper",
+   "min": "normal",
+   "max": "normal"
+  },
+  {
+   "id": "risk-charger",
+   "kind": "risk",
+   "prompt": "update the phone charger product copy",
+   "min": "normal",
+   "max": "normal"
+  },
+  {
+   "id": "risk-migration",
+   "kind": "risk",
+   "prompt": "write a migration adding a shipped_at column to orders",
+   "min": "elevated",
+   "max": "critical"
+  },
+  {
+   "id": "risk-alter",
+   "kind": "risk",
+   "prompt": "alter table users add column nickname",
+   "min": "elevated",
+   "max": "critical"
+  },
+  {
+   "id": "risk-ratelimit",
+   "kind": "risk",
+   "prompt": "add rate limiting to the login endpoint",
+   "min": "elevated",
+   "max": "critical"
+  },
+  {
+   "id": "risk-refund",
+   "kind": "risk",
+   "prompt": "issue a refund through stripe",
+   "min": "high",
+   "max": "critical"
+  },
+  {
+   "id": "risk-prod-delete",
+   "kind": "risk",
+   "prompt": "delete every row of the sessions table in production",
+   "min": "high",
+   "max": "critical"
+  },
+  {
+   "id": "risk-explain",
+   "kind": "risk",
+   "prompt": "how the single delegation actually runs explain in laymans",
+   "min": "normal",
+   "max": "normal"
+  },
+  {
+   "id": "risk-rc",
+   "kind": "risk",
+   "prompt": "start rc",
+   "min": "normal",
+   "max": "normal"
+  },
+  {
+   "id": "deleg-single-trivial",
+   "kind": "delegate",
+   "prompt": "rename the variable",
+   "mode": "single",
+   "delegate": false,
+   "fan_out": false
+  },
+  {
+   "id": "deleg-multi-trivial",
+   "kind": "delegate",
+   "prompt": "rename the variable",
+   "mode": "multi",
+   "delegate": false
+  },
+  {
+   "id": "deleg-single-medium",
+   "kind": "delegate",
+   "prompt": "fix the login bug in the api",
+   "mode": "single",
+   "delegate": false
+  },
+  {
+   "id": "deleg-multi-medium",
+   "kind": "delegate",
+   "prompt": "fix the login bug in the api and add integration tests",
+   "mode": "multi",
+   "delegate": true
+  },
+  {
+   "id": "deleg-single-risky",
+   "kind": "delegate",
+   "prompt": "delete every row of the sessions table in production and migrate the schema",
+   "mode": "single",
+   "delegate": true
+  },
+  {
+   "id": "deleg-single-heavy",
+   "kind": "delegate",
+   "prompt": "migrate the authentication system to oauth across the frontend and backend with a schema migration",
+   "mode": "single",
+   "file_count": 20,
+   "fan_out": true
+  },
+  {
+   "id": "deleg-explain",
+   "kind": "delegate",
+   "prompt": "explain how the router works",
+   "mode": "single",
+   "delegate": false,
+   "fan_out": false
+  }
+ ]
+}

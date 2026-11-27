@@ -71,6 +71,13 @@ def restore(root, sid):
         bits.append("Files touched so far: %s." % ", ".join(files))
     if runs:
         bits.append("Last commands run: %s." % " | ".join(runs))
+    try:
+        notes = open(_boot.progress_path(root, sid)).read()
+        if notes.strip():
+            bits.append("\nProgress file %s (newest last):\n%s"
+                        % (_boot.progress_path(root, sid), notes[-3000:]))
+    except (IOError, OSError):
+        pass
     return " ".join(bits)
 
 
@@ -119,6 +126,16 @@ def main():
     pr = _stale_prs(cwd)
     if pr:
         bits.append(pr)
+    try:
+        from runtime import memlint, paths
+        proj = paths.project_root(root)
+        count, version = memlint.installed_facts(root)
+        probs = memlint.lint(memlint.default_files(proj), proj, count, version)
+        if probs:
+            bits.append("Stale facts in instructions (%d): %s. Fix them or run `aos memory lint`."
+                        % (len(probs), "; ".join("%s %s" % (p["where"], p["detail"]) for p in probs[:3])))
+    except Exception:
+        pass
     _boot.emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
                                        "additionalContext": " ".join(bits)}})
     return 0
