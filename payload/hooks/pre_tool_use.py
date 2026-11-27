@@ -143,8 +143,8 @@ def model_check(root, tool, tool_input=None, sid=None):
         except Exception:
             planned = None               # fail closed below: an explicit, rankable model is still required
     want = _family(planned)
-    if want is None:
-        want = 0
+    if want is None:                     # unknown plan or router failure: floor by risk
+        want = {"critical": 2, "high": 2, "elevated": 1}.get(turn.get("risk"), 0)
     given = _family(ti.get("model"))
     if given is not None and given >= want:
         return None
@@ -171,13 +171,15 @@ def discuss_check(root, tool, tool_input=None, sid=None):
     Scratch paths stay writable for research notes. Bash is not gated here: the injected
     rule covers commits and pushes, and a shell parser would be a guess.
     """
-    if tool not in WRITE_TOOLS or _cfg(root).get("discuss_gate", "block") == "off":
+    cfg = _cfg(root)
+    if tool not in WRITE_TOOLS or cfg.get("discuss_gate", "block") == "off" \
+            or not cfg.get("enabled", True):
         return None
     turn = _turn(root, sid)
     if not turn or not turn.get("discuss"):
         return None
     path = str((tool_input or {}).get("file_path") or (tool_input or {}).get("notebook_path") or "")
-    if os.path.realpath(path).startswith(SCRATCH) or path.startswith(SCRATCH):
+    if path and os.path.realpath(path).startswith(SCRATCH):
         return None
     return {"action": "BLOCK",
             "reason": ("discussion turn: the owner presented an idea, bug or problem and has not "
@@ -244,13 +246,15 @@ def main():
         return 0
     try:
         verdict = model_check(root, tool, ti, data.get("session_id"))
-    except Exception:
+    except Exception as exc:
         verdict = None                   # a bug here must not also switch off the checks below
+        _boot.note_error(root, "model_check", exc)
     if not verdict:
         try:
             verdict = discuss_check(root, tool, ti, data.get("session_id"))
-        except Exception:
+        except Exception as exc:
             verdict = None
+            _boot.note_error(root, "discuss_check", exc)
     verdict = verdict or delegation_check(_boot.load(), tool, ti, data.get("session_id"))
     if not verdict and tool == "Bash":
         verdict = guards.check(ti.get("command", ""), {"tool": tool})

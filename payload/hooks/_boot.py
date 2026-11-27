@@ -100,6 +100,17 @@ def session_events(root, session_id=None, since=0, agent_id=None, main_only=Fals
     return out
 
 
+def note_error(root, where, exc):
+    """A check that fails open must leave a trace: one line in state/hook-errors.log."""
+    try:
+        os.makedirs(os.path.join(root, "state"), exist_ok=True)
+        with open(os.path.join(root, "state", "hook-errors.log"), "a") as fh:
+            fh.write(json.dumps({"at": __import__("time").time(), "where": where,
+                                 "error": "%s: %s" % (type(exc).__name__, exc)}) + "\n")
+    except (IOError, OSError):
+        pass
+
+
 def payload():
     try:
         raw = sys.stdin.read()

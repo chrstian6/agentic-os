@@ -382,17 +382,25 @@ def main():
             and not is_harness_message(text):
         try:
             from runtime import intent
-            rule_text, discuss = intent.rules(text, _cfg(root))
-        except Exception:
+            prev = bool((_boot.read_turn(root, sid) or {}).get("discuss"))
+            rule_text, discuss = intent.rules(text, _cfg(root), prev)
+        except Exception as exc:
             rule_text, discuss = "", False
+            _boot.note_error(root, "intent.rules", exc)
     ctx = build_context(root, prompt, sid, reserve=len(rule_text) + 1 if rule_text else 0)
-    if not ctx:
+    if not ctx and not (discuss and _cfg(root).get("enabled", True)):
         return 0                        # unclassified (short, noise, disabled): no rules either
     if rule_text:
-        turn = _boot.read_turn(root, sid)
-        if turn is not None:
-            turn["discuss"] = discuss        # a later "go" prompt opens a turn without it
-            _boot.write_turn(root, sid, turn)
+        # build_context has written this prompt's turn (a gate-only one for a short prompt);
+        # a later "go" prompt opens a turn without the flag.
+        turn = _boot.read_turn(root, sid) or {"started": time.time(), "gate_only": True}
+        turn["discuss"] = discuss
+        _boot.write_turn(root, sid, turn)
+    if not ctx:                         # a short discuss prompt ("bug?"): the rule alone
+        _boot.emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                                           "additionalContext": intent.DISCUSS_RULE}})
+        return 0
+    if rule_text:
         head, sep, rest = ctx.partition("\n")     # under the plan line; the guard lines stay last
         ctx = head + "\n" + rule_text + sep + rest
     _boot.emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
