@@ -190,6 +190,29 @@ def build_context(root, prompt, session_id=None):
         "agents": [s["agent"] for s in plan["stages"]],
         "models": {s["agent"]: s["model"] for s in plan["stages"]},
         "arm": arm, "policy_id": policy_id})
+    progress = None
+    if level >= int(cfg.get("progress_from_level", 3)):
+        # Anthropic long-running harness: notes on disk, not in the window
+        # ponytail: never pruned; files are a few KB per session, add cleanup if state grows
+        progress = _boot.progress_path(root, session_id)
+        try:
+            os.makedirs(os.path.dirname(progress), exist_ok=True)
+            fresh = not os.path.exists(progress)
+            with open(progress, "a") as fh:
+                if fresh:
+                    fh.write("# Progress (kept by Agentic OS; survives compaction)\n")
+                fh.write("\n## Request\n%s\n\n## Acceptance\n\n## Proven (command -> result)\n\n"
+                         "## Next\n" % subject[:1000])
+        except (IOError, OSError):
+            progress = None
+    try:  # the eval's raw material; local state only, never sent anywhere
+        from runtime import evals
+        evals.record_trace({"at": time.time(), "session": session_id, "prompt": subject[:500],
+                            "level": level, "risk": risk["level"], "skills": skills_planned,
+                            "mode": plan.get("mode"), "delegate": plan.get("delegate"),
+                            "fan_out": plan.get("fan_out")})
+    except Exception:
+        pass
 
     head = ["[Agentic OS] level %d/5, risk %s, workflow depth %d."
             % (level, risk["level"], c["depth"])]
@@ -215,7 +238,9 @@ def build_context(root, prompt, session_id=None):
         for i, ph in enumerate(plan.get("phases") or [], 1):
             who = ", ".join("%s (%s)" % (d, tier.get(a, "?")) for a, d in zip(ph["agents"], ph["dispatch"]))
             if ph["name"] == "build" and ph.get("parallel"):
-                who += " - heavy: one builder per disjoint-file slice, all in ONE message"
+                who += (" - heavy: map it first with read-only helpers in parallel, then one writer;"
+                        " parallel builders only for slices with frozen interfaces and named,"
+                        " disjoint files")
             elif ph.get("on_failure"):
                 who = "ONLY if a check fails: " + who
             elif len(ph["agents"]) > 1:
@@ -227,15 +252,16 @@ def build_context(root, prompt, session_id=None):
                      "(EVIDENCE = commands run and their output, not files read). "
                      "You stay accountable for the result." % ("; ".join(steps), plan.get("max_parallel", 3)))
     elif plan.get("fan_out"):
+        # Single writer (Cognition, 2025-26): parallel readers work, parallel writers make
+        # conflicting hidden decisions that break at the seams.
         lines.append(
-            "Single-agent mode, HEAVY task: you own it, but slice it first. Split into parts "
-            "that touch disjoint files and need no other part's output. Send one aos-builder "
-            "Agent call per part, ALL in ONE message so they run in parallel; each brief "
-            "names MISSION and the routed skill lines (paste the output of `aos brief`), the exact "
-            "FILES it may touch, SUCCESS, FORBIDDEN, EVIDENCE. Parts that share "
-            "files or depend on each other stay serial, here. You integrate and run the final "
-            "verification yourself. Too small to slice? Do it here. Queued work: "
-            "`aos queue ready` lists tasks with no blockers - those fan out the same way.")
+            "Single-agent mode, HEAVY task: you stay the one writer. 1) Fan out read-only helpers "
+            "in ONE message (aos-researcher / aos-analyst to map code, find callers, answer "
+            "unknowns); each returns paths and findings in under ~1500 tokens, no edits. 2) Write "
+            "the change yourself. Parallel aos-builders only for parts whose interfaces you froze "
+            "first and whose FILES you name and prove disjoint; each brief starts with the output "
+            "of `aos brief` and lists MISSION, FILES, SUCCESS, FORBIDDEN, EVIDENCE. 3) Integrate "
+            "and run the final verification yourself. Queued work: `aos queue ready`.")
     else:
         lines.append("Do not delegate: %s" % plan["direct_execution_reason"])
     if plan["delegate"] or plan.get("fan_out"):
@@ -246,6 +272,10 @@ def build_context(root, prompt, session_id=None):
                              % s["agent"])
     if plan["test_first"]:
         lines.append("Test-first: write the failing test and watch it fail before implementing.")
+    if progress:
+        lines.append("Progress file: %s - fill Acceptance, then add each proving command and its "
+                     "result under Proven and the next step under Next as you go. It is restored "
+                     "after compaction." % progress)
 
     # union of the routed skills across stages, best-scoring first
     best, where = {}, {}

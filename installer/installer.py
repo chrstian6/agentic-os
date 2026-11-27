@@ -18,7 +18,7 @@ import uuid
 SCHEMA = {"installation": 1, "configuration": 1, "queue": 1, "skill": 1, "learning": 1}
 BEGIN = "<!-- AGENTIC-OS:BEGIN -->"
 END = "<!-- AGENTIC-OS:END -->"
-PAYLOAD_DIRS = ["runtime", "config", "skills", "hooks", "bin"]
+PAYLOAD_DIRS = ["runtime", "config", "skills", "hooks", "bin", "evals"]
 PAYLOAD_FILES = ["VERSION", "CLAUDE.block.md"]
 HOOK_MARKER = ".claude/agentic-os/hooks"
 

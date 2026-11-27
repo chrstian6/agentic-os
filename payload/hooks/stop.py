@@ -162,6 +162,16 @@ def proof_gap(events, last_message=""):
     return None
 
 
+def handback_gap(reply, budget_tokens):
+    """A subagent's reply lands in the lead's context; past the budget it costs more than it
+    returns (Anthropic: condensed 1-2k token summaries). ~4 chars per token. 0 disables."""
+    if budget_tokens <= 0 or len(reply) // 4 <= budget_tokens:
+        return None
+    return ("Hand-back is ~%d tokens, over the %d budget. Condense it: the answer first, then "
+            "paths with line numbers, commands with exit codes, what is unverified. No pasted "
+            "files or logs." % (len(reply) // 4, budget_tokens))
+
+
 def main():
     root = _boot.load()
     data = _boot.payload()
@@ -179,8 +189,9 @@ def main():
             return 0
         # agent_id is unique per subagent: no time window. A new prompt mid-run resets
         # the turn's start and hid a live subagent's edit from the gate.
-        gap = proof_gap(_boot.session_events(root, sid, agent_id=agent_id),
-                        data.get("last_assistant_message") or "")
+        reply = data.get("last_assistant_message") or ""
+        gap = proof_gap(_boot.session_events(root, sid, agent_id=agent_id), reply) \
+            or handback_gap(reply, int(_cfg(root).get("handback_tokens", 2000)))
         _trace(root, "SubagentStop", sid, agent_id, gap)
         if gap:
             # Exit 2 + stderr, not JSON: measured live, a JSON block on SubagentStop was

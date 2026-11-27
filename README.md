@@ -262,6 +262,10 @@ aos queue ...                     persistent task queue with dependencies
 aos artifact write|read           structured handoff between agents
 aos audit <task_id> --criteria    completion audit
 aos learn ...                     observations, policies, champion/challenger
+aos learn tune [knob] [--apply]   try one config knob's values, keep only a higher eval score
+aos eval [--save-baseline]        score the router on fixed cases (0-100), exit 1 on regression
+aos label list|route|risk|delegate  turn a recorded prompt into an eval case
+aos memory lint [files]           stale paths, counts and versions in instruction files
 aos models                        model tier mapping and availability
 aos skills list|search|show       browse the skill library
 ```

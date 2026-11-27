@@ -9,8 +9,8 @@ if __package__ in (None, ""):  # allow `python3 runtime/cli.py`
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     __package__ = "runtime"
 
-from . import (adapter, artifacts, classify, guards, learning, metrics, models,  # noqa: E402
-               paths, queue, registry, router, util, vault, workflow)
+from . import (adapter, artifacts, classify, evals, guards, learning, memlint, metrics,  # noqa: E402
+               models, paths, queue, registry, router, util, vault, workflow)
 
 
 def out(obj):
@@ -83,11 +83,29 @@ def main(argv=None):
     p = sub.add_parser("learn")
     p.add_argument("action", choices=["observe", "patterns", "hypothesize", "propose", "active",
                                       "challengers", "compare", "promote", "reject", "rollback",
-                                      "history", "record-metric", "cycle"])
+                                      "history", "record-metric", "cycle", "tune"])
     p.add_argument("args", nargs="*")
     p.add_argument("--json", default="{}")
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
                    help="learn cycle: report what it would do, promote nothing")
+    p.add_argument("--apply", action="store_true",
+                   help="learn tune: write the winning value (default: report only)")
+
+    p = sub.add_parser("eval", help="score the harness on the fixed eval; exit 1 if below baseline")
+    p.add_argument("--save-baseline", dest="save_baseline", action="store_true")
+    p = sub.add_parser("memory", help="lint instruction files for facts the tree has moved past")
+    p.add_argument("action", choices=["lint"], nargs="?", default="lint")
+    p.add_argument("files", nargs="*", help="default: CLAUDE.md and .claude/rules/*.md")
+    p = sub.add_parser("label", help="list recent prompts, or turn one into an eval case")
+    p.add_argument("action", choices=["list", "route", "risk", "delegate"], nargs="?", default="list")
+    p.add_argument("index", nargs="?", type=int, help="index from `aos label list`")
+    p.add_argument("--n", type=int, default=20)
+    p.add_argument("--must", action="append", default=[])
+    p.add_argument("--mustnot", action="append", default=[])
+    p.add_argument("--min")
+    p.add_argument("--max")
+    p.add_argument("--delegate", choices=["yes", "no"])
+    p.add_argument("--mode", choices=list(workflow.MODES))
 
     sub.add_parser("models", help="show tier -> model mapping and availability")
     p = sub.add_parser("adapter")
@@ -247,6 +265,37 @@ def main(argv=None):
         return out({"champion": metrics.aggregate(con, arm="champion"),
                     "challenger": metrics.aggregate(con, arm="challenger")})
 
+    if a.cmd == "eval":
+        res = evals.run(evals.load_cases())
+        if a.save_baseline:
+            evals.save_baseline(res)
+        res["baseline"] = evals.compare(res)
+        out(res)
+        return 1 if res["baseline"]["regressed"] else 0
+
+    if a.cmd == "memory":
+        proj = paths.project_root()
+        count, version = memlint.installed_facts()
+        probs = memlint.lint(a.files or memlint.default_files(proj), proj, count, version)
+        out({"problems": probs, "count": len(probs)})
+        return 1 if probs else 0
+
+    if a.cmd == "label":
+        recent = evals.traces(max(a.n, (a.index or 0) + 1))
+        if a.action == "list":
+            return out([dict(t, index=i) for i, t in enumerate(recent[:a.n])])
+        if a.index is None or a.index >= len(recent):
+            print("label %s needs an index from `aos label list`" % a.action, file=sys.stderr)
+            return 2
+        try:
+            case = evals.label(recent[a.index], a.action, must=a.must, mustnot=a.mustnot,
+                               min=a.min, max=a.max, mode=a.mode,
+                               delegate=None if a.delegate is None else a.delegate == "yes")
+        except (ValueError, KeyError) as exc:
+            print("label refused: %s" % exc, file=sys.stderr)
+            return 2
+        return out(case)
+
     if a.cmd == "mode":
         if a.value:
             path = paths.config("auto.json")
@@ -319,6 +368,13 @@ def main(argv=None):
             learning.observe(con, int(args[0]) if args[0].isdigit() else None, args[1], args[2],
                              json.loads(a.json))
             return out({"observed": args[1:3]})
+        if act == "tune":
+            knobs = args or sorted(evals.KNOBS)
+            unknown = [k for k in knobs if k not in evals.KNOBS]
+            if unknown:
+                return out({"error": "unknown knob(s) %s; known: %s" % (unknown, sorted(evals.KNOBS))}) or 2
+            cases = evals.load_cases()
+            return out([evals.tune(cases, k, apply=a.apply) for k in knobs])
         if act == "cycle":
             return out(learning.cycle(con, metrics.connect(), auto_promote=not a.dry_run))
         if act == "patterns":
