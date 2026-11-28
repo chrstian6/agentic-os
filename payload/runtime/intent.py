@@ -37,9 +37,11 @@ ASKED = re.compile(r"\b(you have to|you need to|i want you to|we need to|please)
                    r"\b(fix|do) it\b" % VERBS, re.I)
 # Verbs that also read as nouns ("Test failing on CI", "Close button is misaligned"):
 # only these yield to a report. "Fix the footer, it overlaps" stays an order.
-AMBIGUOUS = re.compile(r"^\W*(test|update|push|open|close|use|start|stop|show|set|run|release|"
-                       r"add|delete|remove|save|search|share|"
-                       r"hook|port|split|clean|build|merge|install|wire|move|change)\b", re.I)
+AMBIGUOUS = re.compile(r"^\W*((test|update|push|open|close|use|start|stop|show|set|run|release|"
+                       r"hook|port|split|clean|build|merge|install|wire|move|change)\b|"
+                       # add/delete/remove/save are verbs unless a UI noun follows: "Add to cart fails"
+                       r"(add|delete|remove|save|search|share)\s+(to\s+\w+|button|filter|chip|icon|"
+                       r"link|bar|modal|menu|tab|field|dialog)\b)", re.I)
 DIRECT = re.compile(r"^\W*(implement|build|apply|ship)\b", re.I)   # "implement the proposal" is a go
 
 VOICE = ("Reply style (owner rule): brief. ASD-STE100: max 20 words per sentence, active voice, "

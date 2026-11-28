@@ -22,15 +22,16 @@ def test_session_start_injects_notes_and_newest_handoff_within_budget():
               "---\ntags: [design]\n---\n# Design Preferences\n\n- Apple HIG. Less is more.\n" + "x " * 900)
         write(os.path.join(vault, "Sessions", "2026-11-16 Handoff.md"), "# old\n")
         write(os.path.join(vault, "Sessions", "2026-11-22 Handoff.md"), "# State\nqueue fix in review\n")
+        write(os.path.join(vault, "Sessions", "Template.md"), "# template, not a handoff\n")
         _configure(root, vault, notes=["KB/Design Preferences.md", "KB/Missing.md"],
                    handoff_dir="Sessions", max_chars=600)
         ctx = _run(root, "session_start.py", {"session_id": "S"})["hookSpecificOutput"]["additionalContext"]
         assert "Owner memory" in ctx and "Apple HIG. Less is more." in ctx, ctx
         assert "tags:" not in ctx, "frontmatter must be stripped"
         assert "2026-11-22 Handoff.md" in ctx and "queue fix in review" in ctx, ctx
-        assert "2026-11-16" not in ctx
+        assert "2026-11-16" not in ctx and "Template" not in ctx
         start = ctx.index("Owner memory")
-        assert len(ctx[start:]) <= 700, len(ctx[start:])
+        assert len(ctx[start:]) <= 600, len(ctx[start:])
     finally:
         rm(d)
         rm(vault)

@@ -445,19 +445,17 @@
         "layout",
         "typography",
         "typeface",
-        "font",
         "hig",
         "minimal",
-        "clean",
-        "readable",
-        "polish",
+        "visual polish",
+        "clean ui",
         "landing page",
         "hero",
         "brand",
-        "generic"
+        "looks generic"
       ],
       "version": "1.0.0",
-      "words": 525
+      "words": 536
     },
     "builder/interaction-design": {
       "agents": [

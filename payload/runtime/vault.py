@@ -94,22 +94,29 @@ def session_brief(cfg=None):
     parts = []
     hdir = os.path.join(root, brief.get("handoff_dir") or "")
     if brief.get("handoff_dir") and os.path.isdir(hdir):
-        names = sorted(n for n in os.listdir(hdir) if n.endswith(".md"))
+        # date-named only: "Template.md" sorts after "2026-..." and is not a handoff
+        names = sorted(n for n in os.listdir(hdir)
+                       if n.endswith(".md") and re.match(r"\d{4}-\d{2}-\d{2}", n))
         if names:
             path = os.path.join(hdir, names[-1])
-            parts.append((path, "Newest handoff %s (read it in full before new work)" % path,
+            parts.append((path, "Newest handoff %s (read it in full before new work)" % names[-1],
                           budget // 2))
     notes = [os.path.join(root, n) for n in brief.get("notes", [])]
     notes = [n for n in notes if os.path.isfile(n)]
     for n in notes:
         share = (budget - sum(x[2] for x in parts)) // max(len(notes), 1)
         parts.append((n, os.path.splitext(os.path.basename(n))[0], share))
+    head = "Owner memory (vault %s): " % root
+    budget -= len(head)
     out = []
     for path, label, share in parts:
-        room = share - len(label) - 3
+        share = min(share, budget)       # the handoff goes first and keeps its share
+        room = share - len(label) - 5    # ": " and the " | " separator
         if room > 40:
-            out.append("%s: %s" % (label, _excerpt(path, room)))
-    return ("Owner memory (vault %s): " % root + " | ".join(out)) if out else ""
+            line = "%s: %s" % (label, _excerpt(path, room))
+            out.append(line)
+            budget -= len(line) + 3
+    return (head + " | ".join(out)) if out else ""
 
 
 def is_linked(cfg=None):
