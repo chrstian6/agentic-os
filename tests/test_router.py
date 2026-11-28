@@ -28,7 +28,7 @@ def test_backend_task_loads_backend_and_security():
 def test_redesign_loads_design_stack():
     r = route("redesign the landing page so it stops looking generic",
               agent="builder", budget=8)
-    for expected in ("builder/design-taste", "builder/anti-ai-slop"):
+    for expected in ("builder/hig-taste", "builder/anti-ai-slop"):   # the owner's HIG standard
         assert expected in r["loaded"], r["loaded"]
     assert "builder/accessibility" in r["loaded"], "dependency resolution"
 
@@ -136,3 +136,19 @@ def test_a_trigger_matches_a_word_not_a_fragment():
     # punctuation and multi-word triggers are unaffected
     assert hit("next.js", "upgrade next.js to 16")
     assert hit("test failed", "the test failed again")
+
+
+def test_resolve_protected_skill_never_loses_a_conflict():
+    reg = {"skills": {"a/posture": {"priority": 1, "conflicts": ["b/rich"]},
+                      "b/rich": {"priority": 10, "conflicts": ["a/posture"]}}}
+    out, dropped = router.resolve(["a/posture", "b/rich"], reg, protected={"a/posture"},
+                                  scores={"a/posture": 1.0, "b/rich": 9.0})
+    assert out == ["a/posture"] and dropped == ["b/rich"], (out, dropped)
+
+
+def test_resolve_higher_score_beats_higher_priority():
+    reg = {"skills": {"a/boosted": {"priority": 1, "conflicts": ["b/default"]},
+                      "b/default": {"priority": 10, "conflicts": ["a/boosted"]}}}
+    out, dropped = router.resolve(["a/boosted", "b/default"], reg,
+                                  scores={"a/boosted": 8.0, "b/default": 3.0})
+    assert out == ["a/boosted"] and dropped == ["b/default"], (out, dropped)

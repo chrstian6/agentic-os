@@ -31,8 +31,8 @@ def test_every_prompt_gets_classified_automatically():
 
 def test_relevant_skills_are_inlined_not_just_named():
     c = ctx("redesign the marketing landing page so it stops looking generic")
-    assert "<skill name=\"builder/design-taste\">" in c, c[:400]
-    assert "Editorial hierarchy" in c or "editorial hierarchy" in c.lower()
+    assert "<skill name=\"builder/hig-taste\">" in c, c[:400]
+    assert "Less is more" in c
     assert "<skill name=\"builder/backend-engineering\">" not in c
 
 
@@ -276,7 +276,7 @@ def test_the_highest_scoring_skills_are_the_ones_inlined():
     c = ctx("redesign the pricing page so it stops looking generic and fix the hierarchy")
     inlined = re.findall(r'<skill name="([^"]+)">', c)
     assert inlined, c[:200]
-    assert inlined[0] in ("builder/design-taste", "builder/existing-project-redesign"), inlined
+    assert inlined[0] in ("builder/hig-taste", "builder/existing-project-redesign"), inlined
     # under Claude Code's 10,000-char cap the runner-up may not fit: then it is named
     # with its path so it can be read, never silently dropped
     assert "builder/anti-ai-slop" in inlined or "builder/anti-ai-slop (" in c, inlined

@@ -67,7 +67,8 @@ def _trigger_hit(trig, text):
 UI_DOMAINS = {"frontend", "visual", "ui"}
 UI_NOUNS = ("ui", "page", "screen", "component", "layout", "css", "style", "button", "form",
             "modal", "dialog", "dashboard", "frontend", "visual", "view", "navbar", "sidebar",
-            "landing", "theme", "font", "color", "colour", "responsive", "animation", "hero")
+            "landing", "theme", "font", "color", "colour", "responsive", "animation", "hero",
+            "header", "nav", "footer")
 BACKEND_NOUNS = ("api", "endpoint", "rpc", "service", "schema", "migration", "migrate",
                  "database", "query", "worker", "job", "queue", "server", "backend", "sql",
                  "table", "ledger", "webhook", "cron", "settlement", "payout")
@@ -104,6 +105,15 @@ def score(task_text, agent=None, reg=None, adapter=None, policies=()):
             if _trigger_hit(trig, text):
                 s += weight
                 reasons.append("trigger:%s" % trig.lower())
+        # A weak trigger ("card", "padding", "looks") is a UI word only in UI company:
+        # "looks like the redis pool leaks" and "padding oracle" must not route design.
+        # It counts with a second weak hit or a UI noun, never next to a backend noun.
+        weak = [w for w in meta.get("weak_triggers", []) if _trigger_hit(w, text)]
+        if weak and not any(_trigger_hit(w, text) for w in BACKEND_NOUNS):
+            ui = [w for w in UI_NOUNS if w not in weak and _trigger_hit(w, text)]
+            if len(weak) >= 2 or ui:
+                s += weight
+                reasons.append("weak:%s" % ",".join(weak))
         for dom in meta.get("domains", []):
             if _trigger_hit(dom, text):
                 s += 1.5
@@ -139,8 +149,14 @@ def score(task_text, agent=None, reg=None, adapter=None, policies=()):
     return scores, why
 
 
-def resolve(selected, reg):
-    """Pull in dependencies, then drop lower-priority sides of conflicts."""
+def resolve(selected, reg, protected=(), scores=None):
+    """Pull in dependencies, then drop the weaker side of each conflict.
+
+    A protected skill (a mandatory posture) never loses. Otherwise the higher task
+    score wins, so a learned policy that boosts a skill can beat a default; priority
+    breaks ties.
+    """
+    scores = scores or {}
     skills = reg.get("skills", {})
     out = list(selected)
     i = 0
@@ -155,7 +171,8 @@ def resolve(selected, reg):
             if other == name or name not in out or other not in out:
                 continue
             if other in skills.get(name, {}).get("conflicts", []):
-                loser = min((name, other), key=lambda n: skills.get(n, {}).get("priority", 5))
+                pair = [n for n in (name, other) if n not in protected] or [name, other]
+                loser = min(pair, key=lambda n: (scores.get(n, 0), skills.get(n, {}).get("priority", 5)))
                 if loser in out:
                     out.remove(loser)
                     dropped.append(loser)
@@ -202,7 +219,7 @@ def route(task_text, agent=None, budget=6, reg=None, adapter=None, policies=(), 
         # rewording the task could drop it.
         why.setdefault(n, []).append("MANDATORY:%s" % agent)
     picked = [n for n in always if n not in picked] + picked
-    resolved, dropped = resolve(picked, reg)
+    resolved, dropped = resolve(picked, reg, protected=set(always), scores=scores)
     # dependencies may push past budget; keep them (they are the minimum sufficient set)
     return {
         "loaded": resolved,

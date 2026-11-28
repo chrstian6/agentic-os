@@ -26,5 +26,11 @@
     "_comment": "Where `aos learn observe` mirrors an observation. Filename is <date>-<slug>.md, matching the vault's own convention.",
     "folder": "Agent Learnings",
     "enabled": false
+  },
+  "brief": {
+    "_comment": "Session start injects these vault notes and the newest handoff, read live from disk. Paths are relative to vault_root. Empty notes and handoff_dir = off.",
+    "notes": [],
+    "handoff_dir": "",
+    "max_chars": 1500
   }
 }
