@@ -120,3 +120,27 @@ def test_short_discuss_prompt_is_gated_too():
         assert _write(root, "S", "/Users/someone/project/app.py") is None
     finally:
         rm(d)
+
+
+def test_labeled_owner_prompts_classify_with_no_hard_errors():
+    """E = an approval or order (edits open), D = discussion (edits blocked). Review-sourced."""
+    path = os.path.join(os.path.dirname(__file__), "data", "intent_cases.txt")
+    wrong = []
+    for line in open(path):
+        exp, text = line.rstrip("\n").split("|", 1)
+        m = intent.mode(text)
+        if (exp == "E" and m != "work") or (exp == "D" and m != "discuss"):
+            wrong.append((exp, m, text))
+    assert not wrong, wrong
+
+
+def test_unsure_prompt_gets_the_reminder_but_no_block():
+    d, root = _fresh()
+    try:
+        prompt = "the new onboarding copy from marketing"
+        assert intent.mode(prompt) == "unsure"
+        ctx = _ctx(root, "S", prompt)
+        assert "Owner rule: if this prompt presents" in ctx and "DISCUSS mode" not in ctx, ctx[:600]
+        assert _write(root, "S", "/Users/someone/project/app.py") is None
+    finally:
+        rm(d)
