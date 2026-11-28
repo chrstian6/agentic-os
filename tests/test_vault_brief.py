@@ -44,3 +44,17 @@ def test_no_vault_no_brief():
         assert "Owner memory" not in ctx
     finally:
         rm(d)
+
+
+def test_a_broken_brief_config_is_logged_not_silent():
+    d, root = _fresh()
+    vault = tmpdir()
+    try:
+        _configure(root, vault, notes=[], handoff_dir="", max_chars="abc")
+        out = _run(root, "session_start.py", {"session_id": "S"})
+        assert out and "Owner memory" not in out["hookSpecificOutput"]["additionalContext"]
+        log = os.path.join(root, "state", "hook-errors.log")
+        assert os.path.exists(log) and "vault.session_brief" in open(log).read()
+    finally:
+        rm(d)
+        rm(vault)
