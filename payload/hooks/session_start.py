@@ -136,6 +136,13 @@ def main():
                         % (len(probs), "; ".join("%s %s" % (p["where"], p["detail"]) for p in probs[:3])))
     except Exception:
         pass
+    try:
+        from runtime import vault
+        brief = vault.session_brief()
+        if brief:
+            bits.append(brief)
+    except Exception as exc:
+        _boot.note_error(root, "vault.session_brief", exc)
     _boot.emit({"hookSpecificOutput": {"hookEventName": "SessionStart",
                                        "additionalContext": " ".join(bits)}})
     return 0

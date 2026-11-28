@@ -249,7 +249,7 @@ def test_status_reports_only_real_state():
         assert inst.status() == {"installed": False, "project": os.path.abspath(d)}
         inst.install()
         st = inst.status()
-        assert st["installed"] and st["skills_installed"] == 58
+        assert st["installed"] and st["skills_installed"] == 59
         assert len(st["agents"]) == 9
         assert st["queue"]["total"] == 0
         assert st["learning"] == {"champion_policies": 0, "challengers": 0, "observations": 0}

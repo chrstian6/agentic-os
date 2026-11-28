@@ -139,8 +139,14 @@ def score(task_text, agent=None, reg=None, adapter=None, policies=()):
     return scores, why
 
 
-def resolve(selected, reg):
-    """Pull in dependencies, then drop lower-priority sides of conflicts."""
+def resolve(selected, reg, protected=(), scores=None):
+    """Pull in dependencies, then drop the weaker side of each conflict.
+
+    A protected skill (a mandatory posture) never loses. Otherwise the higher task
+    score wins, so a learned policy that boosts a skill can beat a default; priority
+    breaks ties.
+    """
+    scores = scores or {}
     skills = reg.get("skills", {})
     out = list(selected)
     i = 0
@@ -155,7 +161,8 @@ def resolve(selected, reg):
             if other == name or name not in out or other not in out:
                 continue
             if other in skills.get(name, {}).get("conflicts", []):
-                loser = min((name, other), key=lambda n: skills.get(n, {}).get("priority", 5))
+                pair = [n for n in (name, other) if n not in protected] or [name, other]
+                loser = min(pair, key=lambda n: (scores.get(n, 0), skills.get(n, {}).get("priority", 5)))
                 if loser in out:
                     out.remove(loser)
                     dropped.append(loser)
@@ -202,7 +209,7 @@ def route(task_text, agent=None, budget=6, reg=None, adapter=None, policies=(), 
         # rewording the task could drop it.
         why.setdefault(n, []).append("MANDATORY:%s" % agent)
     picked = [n for n in always if n not in picked] + picked
-    resolved, dropped = resolve(picked, reg)
+    resolved, dropped = resolve(picked, reg, protected=set(always), scores=scores)
     # dependencies may push past budget; keep them (they are the minimum sufficient set)
     return {
         "loaded": resolved,

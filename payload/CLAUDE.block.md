@@ -64,5 +64,5 @@ delegation — artifacts, not transcripts.
 
 ## Skills
 
-58 skills live in `{{AOS_HOME}}/skills`. They are *installed*, not loaded: the router picks
+59 skills live in `{{AOS_HOME}}/skills`. They are *installed*, not loaded: the router picks
 the minimum sufficient set per task. Read the files it names; do not read the whole library.

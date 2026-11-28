@@ -1,5 +1,5 @@
 {
-  "count": 58,
+  "count": 59,
   "generated_from": "skills/**/SKILL.md",
   "schema_version": 1,
   "skills": {
@@ -406,6 +406,58 @@
       ],
       "version": "2.0.0",
       "words": 2828
+    },
+    "builder/hig-taste": {
+      "agents": [
+        "builder",
+        "design-critic",
+        "reviewer"
+      ],
+      "conflicts": [
+        "builder/design-taste",
+        "builder/hallmark"
+      ],
+      "dependencies": [
+        "builder/anti-ai-slop",
+        "builder/accessibility",
+        "builder/responsive-design"
+      ],
+      "description": "The owner's design standard - Apple HIG applied to the web, less is more, modern and readable, one clean sans typeface. The default for every UI task; a project's own design authority overrides it where they differ.",
+      "domains": [
+        "frontend",
+        "visual",
+        "design"
+      ],
+      "has_tests": false,
+      "name": "builder/hig-taste",
+      "path": "skills/builder/hig-taste/SKILL.md",
+      "priority": 10,
+      "triggers": [
+        "design",
+        "ui",
+        "ux",
+        "redesign",
+        "look",
+        "visual",
+        "styling",
+        "beautiful",
+        "taste",
+        "layout",
+        "typography",
+        "typeface",
+        "font",
+        "hig",
+        "minimal",
+        "clean",
+        "readable",
+        "polish",
+        "landing page",
+        "hero",
+        "brand",
+        "generic"
+      ],
+      "version": "1.0.0",
+      "words": 525
     },
     "builder/interaction-design": {
       "agents": [
@@ -1359,7 +1411,7 @@
         "claim"
       ],
       "version": "1.0.0",
-      "words": 361
+      "words": 507
     },
     "shared/failure-recovery": {
       "agents": [

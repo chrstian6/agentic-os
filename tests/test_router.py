@@ -28,7 +28,7 @@ def test_backend_task_loads_backend_and_security():
 def test_redesign_loads_design_stack():
     r = route("redesign the landing page so it stops looking generic",
               agent="builder", budget=8)
-    for expected in ("builder/design-taste", "builder/anti-ai-slop"):
+    for expected in ("builder/hig-taste", "builder/anti-ai-slop"):   # the owner's HIG standard
         assert expected in r["loaded"], r["loaded"]
     assert "builder/accessibility" in r["loaded"], "dependency resolution"
 

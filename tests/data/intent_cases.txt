@@ -60,3 +60,9 @@ E|yes please
 D|payments page crashes when card is expired
 E|run the tests
 D|why is the build red on dev
+D|Add to cart fails for guests.
+D|Delete button does nothing on the vault page.
+D|Remove filter chip overlaps the search bar.
+E|add sold by to buy now cards
+E|delete the unused footer component
+E|remove the gray panel from the settings page

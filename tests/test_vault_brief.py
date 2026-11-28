@@ -1,0 +1,45 @@
+"""Session start reads the owner's memory from the vault: preference notes and the newest handoff."""
+import json
+import os
+
+from helpers import rm, tmpdir, write
+from test_context import _fresh, _run
+
+
+def _configure(root, vault, **brief):
+    p = os.path.join(root, "config", "memory.json")
+    cfg = json.load(open(p))
+    cfg["vault_root"] = vault
+    cfg["brief"] = brief
+    json.dump(cfg, open(p, "w"))
+
+
+def test_session_start_injects_notes_and_newest_handoff_within_budget():
+    d, root = _fresh()
+    vault = tmpdir()
+    try:
+        write(os.path.join(vault, "KB", "Design Preferences.md"),
+              "---\ntags: [design]\n---\n# Design Preferences\n\n- Apple HIG. Less is more.\n" + "x " * 900)
+        write(os.path.join(vault, "Sessions", "2026-11-16 Handoff.md"), "# old\n")
+        write(os.path.join(vault, "Sessions", "2026-11-22 Handoff.md"), "# State\nqueue fix in review\n")
+        _configure(root, vault, notes=["KB/Design Preferences.md", "KB/Missing.md"],
+                   handoff_dir="Sessions", max_chars=600)
+        ctx = _run(root, "session_start.py", {"session_id": "S"})["hookSpecificOutput"]["additionalContext"]
+        assert "Owner memory" in ctx and "Apple HIG. Less is more." in ctx, ctx
+        assert "tags:" not in ctx, "frontmatter must be stripped"
+        assert "2026-11-22 Handoff.md" in ctx and "queue fix in review" in ctx, ctx
+        assert "2026-11-16" not in ctx
+        start = ctx.index("Owner memory")
+        assert len(ctx[start:]) <= 700, len(ctx[start:])
+    finally:
+        rm(d)
+        rm(vault)
+
+
+def test_no_vault_no_brief():
+    d, root = _fresh()
+    try:
+        ctx = _run(root, "session_start.py", {"session_id": "S"})["hookSpecificOutput"]["additionalContext"]
+        assert "Owner memory" not in ctx
+    finally:
+        rm(d)

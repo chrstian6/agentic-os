@@ -64,6 +64,54 @@ def project_dir(cfg=None):
     return os.path.join(root, folder) if folder else root
 
 
+def _excerpt(path, limit):
+    """A note's text without frontmatter, whitespace collapsed, cut to `limit` chars."""
+    try:
+        with open(path, errors="replace") as fh:
+            text = fh.read()
+    except (IOError, OSError):
+        return ""
+    if text.startswith("---"):
+        end = text.find("\n---", 3)
+        text = text[end + 4:] if end != -1 else text
+    text = re.sub(r"\s+", " ", text).strip()
+    return text if len(text) <= limit else text[:max(limit - 3, 0)].rstrip() + "..."
+
+
+def session_brief(cfg=None):
+    """Owner memory for session start: named notes plus the newest handoff, under a budget.
+
+    Config `brief` in memory.json: {"notes": [vault-relative paths], "handoff_dir": folder
+    of date-named handoffs, "max_chars": total budget}. Off when vault_root is empty. The
+    note bodies are read live from disk, never cached, so the vault stays the one source.
+    """
+    cfg = cfg or load_config()
+    root = (cfg.get("vault_root") or "").strip()
+    brief = cfg.get("brief") or {}
+    if not root or not os.path.isdir(root) or not brief:
+        return ""
+    budget = int(brief.get("max_chars", 1500))
+    parts = []
+    hdir = os.path.join(root, brief.get("handoff_dir") or "")
+    if brief.get("handoff_dir") and os.path.isdir(hdir):
+        names = sorted(n for n in os.listdir(hdir) if n.endswith(".md"))
+        if names:
+            path = os.path.join(hdir, names[-1])
+            parts.append((path, "Newest handoff %s (read it in full before new work)" % path,
+                          budget // 2))
+    notes = [os.path.join(root, n) for n in brief.get("notes", [])]
+    notes = [n for n in notes if os.path.isfile(n)]
+    for n in notes:
+        share = (budget - sum(x[2] for x in parts)) // max(len(notes), 1)
+        parts.append((n, os.path.splitext(os.path.basename(n))[0], share))
+    out = []
+    for path, label, share in parts:
+        room = share - len(label) - 3
+        if room > 40:
+            out.append("%s: %s" % (label, _excerpt(path, room)))
+    return ("Owner memory (vault %s): " % root + " | ".join(out)) if out else ""
+
+
 def is_linked(cfg=None):
     """True only when the configured vault actually exists on this machine."""
     d = project_dir(cfg)

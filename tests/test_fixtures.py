@@ -76,7 +76,7 @@ def test_installs_into_every_ecosystem():
             res = inst.doctor()
             assert res["ok"], "%s: %s" % (name, [c for c in res["checks"] if not c["ok"]])
             st = inst.status()
-            assert st["skills_installed"] == 58 and len(st["agents"]) == 9, (name, st)
+            assert st["skills_installed"] == 59 and len(st["agents"]) == 9, (name, st)
             # the project's own files are untouched
             for rel in spec:
                 if rel != "expect":
