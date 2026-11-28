@@ -58,3 +58,17 @@ def test_a_broken_brief_config_is_logged_not_silent():
     finally:
         rm(d)
         rm(vault)
+
+
+def test_budget_counts_the_header_with_a_long_vault_path():
+    d, root = _fresh()
+    vault = os.path.join(tmpdir(), "a-very-long-vault-folder-name-" + "x" * 120)
+    try:
+        write(os.path.join(vault, "KB", "P.md"), "# P\n" + "word " * 400)
+        _configure(root, vault, notes=["KB/P.md"], handoff_dir="", max_chars=400)
+        ctx = _run(root, "session_start.py", {"session_id": "S"})["hookSpecificOutput"]["additionalContext"]
+        start = ctx.find("Owner memory")
+        assert start >= 0 and len(ctx[start:]) <= 400, len(ctx[start:])
+    finally:
+        rm(d)
+        rm(os.path.dirname(vault))

@@ -18,6 +18,15 @@ def test_backend_task_does_not_load_it():
 
 def test_cleanup_and_docs_tasks_do_not_load_it():
     for task in ("clean up dead code in utils", "polish the readme",
-                 "make the error messages readable", "tidy the generic error handler"):
+                 "make the error messages readable", "tidy the generic error handler",
+                 "fix the cron job screen scraping retry", "add stripe credit card refunds endpoint"):
         r = router.route(task, agent="builder")
         assert "builder/hig-taste" not in r["loaded"], (task, r["loaded"])
+
+
+def test_everyday_ui_asks_load_it():
+    for task in ("make the settings page cleaner and more readable", "polish the pricing card",
+                 "the font on the lot page feels too big", "the modal padding is cramped",
+                 "fix the spacing on the checkout form so it looks less generic"):
+        r = router.route(task, agent="builder")
+        assert "builder/hig-taste" in r["loaded"], (task, r["loaded"])
