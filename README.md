@@ -279,6 +279,12 @@ a later session:
 aos queue add "Build the CSV serializer"
 aos queue add "Test the CSV serializer" --depends-on 1
 aos queue ready              # what may run right now
+aos queue next               # claim the oldest ready task (FIFO), marks it RUNNING
+```
+
+Owner rules (`config/auto.json`): `voice` adds a brief ASD-STE100 reply rule to every prompt; `discuss_gate: block` makes an idea, bug or problem with no "go" a discussion turn, and file edits stay blocked until a later prompt says go.
+
+```bash
 aos queue list
 aos queue set 1 COMPLETED    # dependents are released automatically
 ```

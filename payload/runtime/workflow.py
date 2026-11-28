@@ -83,14 +83,25 @@ def queue_waves(tasks, policies=()):
     """
     cap = max_parallel()
     size = max(1, int(_auto().get("batch_size", 3)))
-    small, big = [], []
+    rank = {"normal": 0, "elevated": 1, "high": 2, "critical": 3}
+    units, batch = [], None
+    # FIFO: a unit sits where its oldest task sits; small tasks batch, never jump the line.
     for t in tasks:
         c = classify.classify("%s %s" % (t.get("title", ""), t.get("body", "") or ""), 0, policies)
         lvl = c["difficulty"]["level"]
         row = {"id": t["id"], "title": t.get("title", ""), "level": lvl, "risk": c["risk"]["level"]}
-        (small if lvl <= 2 and c["risk"]["level"] == "normal" else big).append(row)
-    units = [{"agent": "aos-builder", "tasks": small[i:i + size]} for i in range(0, len(small), size)]
-    units += [{"agent": "aos-builder", "tasks": [r]} for r in big]
+        if lvl <= 2 and row["risk"] == "normal":
+            if batch is None or len(batch["tasks"]) >= size:
+                batch = {"agent": "aos-builder", "tasks": []}
+                units.append(batch)
+            batch["tasks"].append(row)
+        else:
+            units.append({"agent": "aos-builder", "tasks": [row]})
+            batch = None                 # a later small task must not join an earlier batch
+    for u in units:
+        lvl = max(r["level"] for r in u["tasks"])
+        risk = max((r["risk"] for r in u["tasks"]), key=lambda k: rank.get(k, 0))
+        u["model"] = models.route(lvl, risk, "builder")["model"]
     waves = [units[i:i + cap] for i in range(0, len(units), cap)]
     return {"max_parallel": cap, "batch_size": size, "dispatches": len(units), "waves": waves}
 

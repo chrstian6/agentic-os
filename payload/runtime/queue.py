@@ -61,14 +61,18 @@ def connect(db_path=None):
 
 
 def add(con, title, body="", depends_on=(), depth=1, risk="normal", agent=None, classification=None):
+    deps = [int(x) for x in depends_on]
+    missing = [x for x in deps if not con.execute("SELECT 1 FROM tasks WHERE id=?", (x,)).fetchone()]
+    if missing:
+        raise ValueError("unknown dependency %s" % ",".join(map(str, missing)))
     cur = con.execute(
         "INSERT INTO tasks (title, body, status, depth, risk, agent, classification, created_at, updated_at)"
         " VALUES (?,?,?,?,?,?,?,?,?)",
         (title, body, "QUEUED", depth, risk, agent,
          json.dumps(classification) if classification else None, util.now(), util.now()))
     tid = cur.lastrowid
-    for dep in depends_on:
-        con.execute("INSERT OR IGNORE INTO deps VALUES (?,?,'explicit')", (tid, int(dep)))
+    for dep in deps:
+        con.execute("INSERT OR IGNORE INTO deps VALUES (?,?,'explicit')", (tid, dep))
     infer(con, tid, title)
     log(con, tid, "created", title)
     con.commit()
@@ -111,22 +115,65 @@ def blockers(con, task_id):
 def ready(con):
     """Tasks that may run now. Failure of one task never hides an independent one."""
     out = []
-    for row in con.execute("SELECT * FROM tasks WHERE status IN ('QUEUED','READY','PLANNED','PAUSED') ORDER BY id"):
+    rows = con.execute("SELECT * FROM tasks WHERE status IN ('QUEUED','READY','PLANNED','PAUSED',"
+                       "'WAITING_DEPENDENCY') ORDER BY id").fetchall()
+    for row in rows:
         b = blockers(con, row["id"])
         if b:
             if row["status"] != "WAITING_DEPENDENCY":
                 set_status(con, row["id"], "WAITING_DEPENDENCY",
                            "waiting on %s" % ",".join(str(x["id"]) for x in b))
             continue
+        if row["status"] == "WAITING_DEPENDENCY":    # self-heal: its blockers are gone
+            set_status(con, row["id"], "READY", "dependencies met")
+            row = con.execute("SELECT * FROM tasks WHERE id=?", (row["id"],)).fetchone()
         out.append(dict(row))
     return out
+
+
+def claim(con):
+    """Take the oldest ready, unpaused task (FIFO by id) and mark it RUNNING.
+
+    Compare-and-set on the status, so two sessions sharing the queue never take the
+    same task: the loser's UPDATE matches no row and it moves on to the next one.
+    """
+    return _take(con, [r for r in ready(con) if r["status"] != "PAUSED"])
+
+
+def _take(con, rows):
+    for row in rows:
+        cur = con.execute("UPDATE tasks SET status='RUNNING', updated_at=? WHERE id=? AND status=?",
+                          (util.now(), row["id"], row["status"]))
+        if cur.rowcount == 1:
+            log(con, row["id"], "status", "RUNNING claimed")
+            con.commit()
+            return dict(row, status="RUNNING")
+        con.commit()
+    return None
 
 
 def set_status(con, task_id, status, detail=""):
     if status not in STATUSES:
         raise ValueError("unknown status %s" % status)
+    prev = con.execute("SELECT status FROM tasks WHERE id=?", (task_id,)).fetchone()
+    if not prev:
+        raise ValueError("unknown task %s" % task_id)
     con.execute("UPDATE tasks SET status=?, updated_at=? WHERE id=?", (status, util.now(), task_id))
     log(con, task_id, "status", "%s %s" % (status, detail))
+    if prev["status"] == "CANCELLED" and status != "CANCELLED":
+        # Reopened: release only the dependents this task's cancellation blocked.
+        for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)).fetchall():
+            last = con.execute("SELECT detail FROM events WHERE task_id=? AND kind='status'"
+                               " AND detail LIKE 'BLOCKED%' ORDER BY id DESC LIMIT 1",
+                               (row["task_id"],)).fetchone()
+            still = [x for x in blockers(con, row["task_id"]) if x["permanent"]]
+            by_cancel = last and last["detail"].startswith("BLOCKED prerequisite ") \
+                and last["detail"].endswith(" was cancelled")
+            if by_cancel and not still:
+                con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? "
+                            "WHERE id=? AND status='BLOCKED'", (util.now(), row["task_id"]))
+                log(con, row["task_id"], "status", "WAITING_DEPENDENCY prerequisite %s reopened"
+                    % task_id)
     if status == "COMPLETED":
         # wake dependents that were parked
         for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)):
@@ -147,7 +194,9 @@ def set_status(con, task_id, status, detail=""):
                     "BLOCKED prerequisite %s was cancelled" % task_id)
     if status in ("FAILED", "BLOCKED", "ESCALATED"):
         for row in con.execute("SELECT task_id FROM deps WHERE depends_on=?", (task_id,)):
-            con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? WHERE id=? AND status NOT IN ('COMPLETED','CANCELLED')",
+            # in-flight work is not yanked back: re-queuing it would let it run twice
+            con.execute("UPDATE tasks SET status='WAITING_DEPENDENCY', updated_at=? WHERE id=? AND status NOT IN"
+                        " ('COMPLETED','CANCELLED','RUNNING','TESTING','REPAIRING','REVIEWING','FINAL_VALIDATION')",
                         (util.now(), row["task_id"]))
     con.commit()
 

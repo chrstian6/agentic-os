@@ -138,7 +138,7 @@ def _gate_only_turn(root, session_id, keep_open=True):
         _boot.write_turn(root, session_id, {"started": time.time(), "gate_only": True})
 
 
-def build_context(root, prompt, session_id=None):
+def build_context(root, prompt, session_id=None, reserve=0):
     sys.path.insert(0, root)
     os.environ.setdefault("AOS_HOME", root)
     from runtime import adapter, learning, paths, workflow  # noqa: E402
@@ -306,7 +306,8 @@ def build_context(root, prompt, session_id=None):
     # in the plan, and `aos skills show <name>` reloads it.
     # Claude Code spills additionalContext over 10,000 chars to a file and shows only a
     # preview: skills past the cap are never read. Measured live: 20.5 KB at depth 4.
-    budget = min(budget, HARNESS_CAP - len(" ".join(lines)) - TAIL_RESERVE)
+    cap = HARNESS_CAP - reserve
+    budget = min(budget, cap - len(" ".join(lines)) - TAIL_RESERVE)
     seen = _seen(root, session_id)
     inlined, listed, kept = [], [], []
     for _i, name, rel in ordered[:max_inline]:
@@ -360,11 +361,11 @@ def build_context(root, prompt, session_id=None):
     # the scored-but-not-inlined names, then the lowest-scoring inlined bodies.
     omitted = 0
     out = assemble(inlined, listed, omitted)
-    while len("\n".join(out)) > HARNESS_CAP and (listed or inlined):
+    while len("\n".join(out)) > cap and (listed or inlined):
         (listed or inlined).pop()
         omitted += 1
         out = assemble(inlined, listed, omitted)
-    over = len("\n".join(out)) - HARNESS_CAP
+    over = len("\n".join(out)) - cap
     if over > 0:                        # the plan lines alone overflow: shorten them, keep the rest
         out[0] = out[0][:max(len(out[0]) - over - 3, 0)] + "..."
     _remember(root, session_id, [n for n, _b in inlined])
@@ -374,9 +375,34 @@ def build_context(root, prompt, session_id=None):
 def main():
     root = _boot.load()
     data = _boot.payload()
-    ctx = build_context(root, data.get("prompt", ""), data.get("session_id"))
-    if not ctx:
+    prompt, sid = data.get("prompt", ""), data.get("session_id")
+    text = (prompt or "").strip()
+    rule_text, discuss = "", False
+    if not any(text.startswith(p) for p in _cfg(root).get("skip_prefixes", [])) \
+            and not is_harness_message(text):
+        try:
+            from runtime import intent
+            prev = bool((_boot.read_turn(root, sid) or {}).get("discuss"))
+            rule_text, discuss = intent.rules(text, _cfg(root), prev)
+        except Exception as exc:
+            rule_text, discuss = "", False
+            _boot.note_error(root, "intent.rules", exc)
+    ctx = build_context(root, prompt, sid, reserve=len(rule_text) + 1 if rule_text else 0)
+    if not ctx and not (discuss and _cfg(root).get("enabled", True)):
+        return 0                        # unclassified (short, noise, disabled): no rules either
+    if rule_text:
+        # build_context has written this prompt's turn (a gate-only one for a short prompt);
+        # a later "go" prompt opens a turn without the flag.
+        turn = _boot.read_turn(root, sid) or {"started": time.time(), "gate_only": True}
+        turn["discuss"] = discuss
+        _boot.write_turn(root, sid, turn)
+    if not ctx:                         # a short discuss prompt ("bug?"): the rule alone
+        _boot.emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
+                                           "additionalContext": intent.DISCUSS_RULE}})
         return 0
+    if rule_text:
+        head, sep, rest = ctx.partition("\n")     # under the plan line; the guard lines stay last
+        ctx = head + "\n" + rule_text + sep + rest
     _boot.emit({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit",
                                        "additionalContext": ctx}})
     return 0

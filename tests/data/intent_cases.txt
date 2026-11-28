@@ -1,0 +1,62 @@
+E|yes
+E|sure
+E|sounds good, proceed
+E|Lets go with option B
+E|approve
+E|👍
+E|go
+E|ok
+E|go on the HIG design proposal
+E|update also the agentic os itself
+E|start rc
+E|ensure the queue respects fifo
+E|no, i mean you have to implement this in agentic os
+D|can you compare the new agentic os to older one?
+E|Let's do option B
+E|implement the proposal
+E|ok do that
+E|option B please
+E|yes, implement the HIG proposal
+E|proceed with option B
+E|fix the footer link
+E|stop the dev server and rebuild
+D|the bid button does nothing on safari
+D|Test failing on CI after the merge
+D|Update banner shows twice on the dashboard
+D|Push notifications are not arriving
+D|Open orders page throws a 500
+D|Close button on the modal is misaligned
+D|cart total is off by a cent
+D|why does the queue run newest first?
+D|i have an idea for the onboarding flow
+D|no, not yet
+D|wait, what about the trade-offs?
+D|yes but first explain the trade-offs
+D|go through the code and tell me what is wrong
+D|don't go ahead yet
+D|Use of the cart crashes the app
+E|go
+E|yes go
+E|do it
+E|lgtm
+E|okay go ahead
+E|Fix: the Go-to-top button overlaps the footer
+E|Improve the error message for login
+E|show the queue
+D|show button is too small on phones
+E|add a ? to the label
+E|rename the issues tab to tickets
+E|search fails when query has a ? char, fix it
+D|the checkout page is slow on safari
+E|ensure the agentic os dont break the queue or drop, respect the queue fifo
+D|improve our design skills, research, learn and remember. we have obsidian
+D|i dont like the tabs buttons that has black border
+E|redesign the monitoring page no gray panel
+D|what do you think about moving payouts to stripe connect
+D|the countdown chips look cramped on phones
+E|polish all tables use data table of shadcn
+E|merge it
+E|yes please
+D|payments page crashes when card is expired
+E|run the tests
+D|why is the build red on dev

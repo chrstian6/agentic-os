@@ -107,6 +107,87 @@ def delegation_check(root, tool, tool_input=None, sid=None):
     }
 
 
+FAMILY = ("haiku", "sonnet", "opus")
+TIER_ALIAS = {"fast": 0, "mid": 1, "balanced": 1, "strong": 2, "deep": 2}
+
+
+def _family(model):
+    low = str(model or "").lower().strip()
+    if low in TIER_ALIAS:
+        return TIER_ALIAS[low]
+    return next((i for i, f in enumerate(FAMILY) if f in low), None)
+
+
+def model_check(root, tool, tool_input=None, sid=None):
+    """An aos-* dispatch must name a model at least as strong as the plan's.
+
+    The plan's model= was prose, and an Agent call without `model` silently inherits the
+    parent's (opus): a level-1 lookup billed as deep work, or a high-risk review on haiku.
+    Stronger than planned passes; missing or weaker is sent back with the right value.
+    """
+    if not _boot.is_delegation(tool):
+        return None
+    ti = tool_input or {}
+    sub = str(ti.get("subagent_type") or "")
+    if not sub.startswith("aos-") or _cfg(root).get("enforce_model", True) is False:
+        return None
+    turn = _turn(root, sid)
+    if not turn or turn.get("gate_only"):
+        return None
+    role = sub[4:]
+    planned = (turn.get("models") or {}).get(role) if isinstance(turn.get("models"), dict) else None
+    if not planned:
+        try:
+            from runtime import models
+            planned = models.route(int(turn.get("level", 1)), turn.get("risk", "normal"), role)["model"]
+        except Exception:
+            planned = None               # fail closed below: an explicit, rankable model is still required
+    want = _family(planned)
+    if want is None:                     # unknown plan or router failure: floor by risk
+        want = {"critical": 2, "high": 2, "elevated": 1}.get(turn.get("risk"), 0)
+    given = _family(ti.get("model"))
+    if given is not None and given >= want:
+        return None
+    if not ti.get("model"):
+        why = ""
+    elif given is None:
+        why = "; %r is not a model this check can rank (use haiku, sonnet or opus)" % ti.get("model")
+    else:
+        why = "; %s is below that" % ti.get("model")
+    target = planned or FAMILY[want]
+    return {"action": "BLOCK",
+            "reason": ("dispatch %s with model=%s (level %s, risk %s)%s. Re-send the same call "
+                       "with `model: \"%s\"`, or a stronger one."
+                       % (sub, target, turn.get("level"), turn.get("risk"), why, target)),
+            "matches": [{"id": "delegation.model"}]}
+
+
+SCRATCH = ("/tmp/", "/private/tmp/", "/var/folders/")
+
+
+def discuss_check(root, tool, tool_input=None, sid=None):
+    """Owner rule: an idea, bug or problem is discussed first; nothing is edited before "go".
+
+    Scratch paths stay writable for research notes. Bash is not gated here: the injected
+    rule covers commits and pushes, and a shell parser would be a guess.
+    """
+    cfg = _cfg(root)
+    if tool not in WRITE_TOOLS or cfg.get("discuss_gate", "block") == "off" \
+            or not cfg.get("enabled", True):
+        return None
+    turn = _turn(root, sid)
+    if not turn or not turn.get("discuss"):
+        return None
+    path = str((tool_input or {}).get("file_path") or (tool_input or {}).get("notebook_path") or "")
+    if path and os.path.realpath(path).startswith(SCRATCH):
+        return None
+    return {"action": "BLOCK",
+            "reason": ("discussion turn: the owner presented an idea, bug or problem and has not "
+                       "said go. Present the proposal, trade-offs and options, ask if we are "
+                       "ready, and wait. Edits open when the owner replies go."),
+            "matches": [{"id": "owner.discuss_first"}]}
+
+
 HANDBACK_TOOLS = ("SubagentHandback",)
 
 
@@ -163,7 +244,18 @@ def main():
         from runtime import guards
     except Exception:
         return 0
-    verdict = delegation_check(_boot.load(), tool, ti, data.get("session_id"))
+    try:
+        verdict = model_check(root, tool, ti, data.get("session_id"))
+    except Exception as exc:
+        verdict = None                   # a bug here must not also switch off the checks below
+        _boot.note_error(root, "model_check", exc)
+    if not verdict:
+        try:
+            verdict = discuss_check(root, tool, ti, data.get("session_id"))
+        except Exception as exc:
+            verdict = None
+            _boot.note_error(root, "discuss_check", exc)
+    verdict = verdict or delegation_check(_boot.load(), tool, ti, data.get("session_id"))
     if not verdict and tool == "Bash":
         verdict = guards.check(ti.get("command", ""), {"tool": tool})
     elif not verdict and tool in WRITE_TOOLS:
