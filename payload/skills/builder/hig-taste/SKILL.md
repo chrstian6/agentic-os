@@ -3,7 +3,8 @@ name: builder/hig-taste
 description: The owner's design standard - Apple HIG applied to the web, less is more, modern and readable, one clean sans typeface. The default for every UI task; a project's own design authority overrides it where they differ.
 agents: [builder, design-critic, reviewer]
 domains: [frontend, visual, design]
-triggers: [design, ui, ux, redesign, look, looks, visual, styling, beautiful, taste, layout, typography, typeface, font, fonts, spacing, padding, hig, minimal, cleaner, more readable, visual polish, clean ui, landing page, hero, brand, generic look, looks generic, less generic, polish the page, polish the card, polish the form, polish the button, polish the modal, polish the screen, card, button, modal]
+triggers: [design, ui, ux, redesign, visual, styling, beautiful, taste, layout, typography, typeface, hig, minimal, visual polish, clean ui, landing page, hero, brand, generic look, looks generic, less generic, more readable, prettier, empty state]
+weak_triggers: [look, looks, font, fonts, spacing, padding, cleaner, polish, tighten, card, cards, button, buttons, modal, cramped, readable, generic]
 dependencies: [builder/anti-ai-slop, builder/accessibility, builder/responsive-design]
 conflicts: [builder/design-taste, builder/hallmark]
 priority: 10

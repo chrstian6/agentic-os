@@ -33,6 +33,7 @@
         "callers"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 318
     },
     "analyst/requirements-analysis": {
@@ -63,6 +64,7 @@
         "scope"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 348
     },
     "analyst/specification": {
@@ -92,6 +94,7 @@
         "write up"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 296
     },
     "builder/accessibility": {
@@ -125,6 +128,7 @@
         "alt text"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 371
     },
     "builder/anti-ai-slop": {
@@ -158,6 +162,7 @@
         "placeholder"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 683
     },
     "builder/backend-engineering": {
@@ -196,6 +201,7 @@
         "queue"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 425
     },
     "builder/component-architecture": {
@@ -225,6 +231,7 @@
         "composition"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 326
     },
     "builder/design-taste": {
@@ -263,6 +270,7 @@
         "hero"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 1069
     },
     "builder/existing-project-redesign": {
@@ -298,6 +306,7 @@
         "facelift"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 442
     },
     "builder/frontend-engineering": {
@@ -335,6 +344,7 @@
         "dom"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 392
     },
     "builder/frontend-testing": {
@@ -367,6 +377,7 @@
         "render test"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 335
     },
     "builder/hallmark": {
@@ -405,6 +416,7 @@
         "hallmark audit"
       ],
       "version": "2.0.0",
+      "weak_triggers": [],
       "words": 2828
     },
     "builder/hig-taste": {
@@ -437,8 +449,6 @@
         "ui",
         "ux",
         "redesign",
-        "look",
-        "looks",
         "visual",
         "styling",
         "beautiful",
@@ -446,14 +456,8 @@
         "layout",
         "typography",
         "typeface",
-        "font",
-        "fonts",
-        "spacing",
-        "padding",
         "hig",
         "minimal",
-        "cleaner",
-        "more readable",
         "visual polish",
         "clean ui",
         "landing page",
@@ -462,17 +466,30 @@
         "generic look",
         "looks generic",
         "less generic",
-        "polish the page",
-        "polish the card",
-        "polish the form",
-        "polish the button",
-        "polish the modal",
-        "polish the screen",
-        "card",
-        "button",
-        "modal"
+        "more readable",
+        "prettier",
+        "empty state"
       ],
       "version": "1.0.0",
+      "weak_triggers": [
+        "look",
+        "looks",
+        "font",
+        "fonts",
+        "spacing",
+        "padding",
+        "cleaner",
+        "polish",
+        "tighten",
+        "card",
+        "cards",
+        "button",
+        "buttons",
+        "modal",
+        "cramped",
+        "readable",
+        "generic"
+      ],
       "words": 536
     },
     "builder/interaction-design": {
@@ -516,6 +533,7 @@
         "pointer"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 472
     },
     "builder/motion": {
@@ -550,6 +568,7 @@
         "framer"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 437
     },
     "builder/motion-graphics-library": {
@@ -584,6 +603,7 @@
         "wordmark reveal"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 1513
     },
     "builder/performance": {
@@ -618,6 +638,7 @@
         "cache"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 330
     },
     "builder/product-svg-artist": {
@@ -654,6 +675,7 @@
         "doodle"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 923
     },
     "builder/remotion-product-demo": {
@@ -692,6 +714,7 @@
         "video for the app"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 1910
     },
     "builder/responsive-design": {
@@ -723,6 +746,7 @@
         "desktop"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 310
     },
     "builder/security": {
@@ -760,6 +784,7 @@
         "upload"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 466
     },
     "design-critic/visual-critique": {
@@ -791,6 +816,7 @@
         "why does it look"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 327
     },
     "orchestrator/decomposition": {
@@ -820,6 +846,7 @@
         "milestones"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 383
     },
     "orchestrator/delegation-economics": {
@@ -847,6 +874,7 @@
         "spawn"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 363
     },
     "repairer/failure-analysis": {
@@ -877,6 +905,7 @@
         "500"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 332
     },
     "repairer/regression-repair": {
@@ -905,6 +934,7 @@
         "bisect"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 304
     },
     "repairer/root-cause-analysis": {
@@ -936,6 +966,7 @@
         "again"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 361
     },
     "repairer/systematic-debugging": {
@@ -971,6 +1002,7 @@
         "root cause"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 430
     },
     "repairer/verification": {
@@ -998,6 +1030,7 @@
         "after the fix"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 255
     },
     "researcher/documentation-analysis": {
@@ -1025,6 +1058,7 @@
         "migration guide"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 257
     },
     "researcher/source-evaluation": {
@@ -1052,6 +1086,7 @@
         "is it true"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 248
     },
     "researcher/technical-research": {
@@ -1082,6 +1117,7 @@
         "api"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 287
     },
     "researcher/uncertainty-reduction": {
@@ -1113,6 +1149,7 @@
         "investigate"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 284
     },
     "reviewer/adversarial-review": {
@@ -1142,6 +1179,7 @@
         "worst case"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 292
     },
     "reviewer/code-review": {
@@ -1171,6 +1209,7 @@
         "feedback"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 311
     },
     "reviewer/completion-audit": {
@@ -1204,6 +1243,7 @@
         "ship it"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 303
     },
     "reviewer/quality-review": {
@@ -1234,6 +1274,7 @@
         "refactor review"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 292
     },
     "reviewer/requirements-review": {
@@ -1263,6 +1304,7 @@
         "coverage of criteria"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 285
     },
     "reviewer/scale-review": {
@@ -1299,6 +1341,7 @@
         "fan-out"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 860
     },
     "reviewer/security-review": {
@@ -1329,6 +1372,7 @@
         "audit"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 296
     },
     "shared/artifact-handoff": {
@@ -1363,6 +1407,7 @@
         "report"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 264
     },
     "shared/context-minimization": {
@@ -1395,6 +1440,7 @@
         "pass along"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 277
     },
     "shared/evidence": {
@@ -1427,6 +1473,7 @@
         "claim"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 507
     },
     "shared/failure-recovery": {
@@ -1460,6 +1507,7 @@
         "escalate"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 325
     },
     "shared/github-workflow": {
@@ -1497,6 +1545,7 @@
         "checks"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 559
     },
     "shared/safe-tool-use": {
@@ -1533,6 +1582,7 @@
         "credentials"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 408
     },
     "shared/senior-engineer": {
@@ -1564,6 +1614,7 @@
         "staff engineer"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 540
     },
     "shared/uncertainty": {
@@ -1596,6 +1647,7 @@
         "which one"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 339
     },
     "shared/unlazy": {
@@ -1631,6 +1683,7 @@
         "rest of"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 402
     },
     "shared/verification": {
@@ -1664,6 +1717,7 @@
         "does it work"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 322
     },
     "tester/e2e-testing": {
@@ -1693,6 +1747,7 @@
         "smoke test"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 320
     },
     "tester/edge-case-analysis": {
@@ -1725,6 +1780,7 @@
         "unicode"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 384
     },
     "tester/failure-analysis": {
@@ -1755,6 +1811,7 @@
         "error output"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 334
     },
     "tester/integration-testing": {
@@ -1784,6 +1841,7 @@
         "seam"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 359
     },
     "tester/regression-testing": {
@@ -1813,6 +1871,7 @@
         "re-run tests"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 320
     },
     "tester/test-design": {
@@ -1840,6 +1899,7 @@
         "how should I test"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 385
     },
     "tester/test-driven-development": {
@@ -1868,6 +1928,7 @@
         "write a test"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 353
     },
     "tester/unit-testing": {
@@ -1898,6 +1959,7 @@
         "test function"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 304
     },
     "tester/verification": {
@@ -1928,6 +1990,7 @@
         "is it done"
       ],
       "version": "1.0.0",
+      "weak_triggers": [],
       "words": 220
     }
   }

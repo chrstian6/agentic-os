@@ -5,7 +5,7 @@ import re
 from . import paths, util
 
 REQUIRED = ("name", "description")
-LIST_FIELDS = ("agents", "domains", "triggers", "dependencies", "conflicts")
+LIST_FIELDS = ("agents", "domains", "triggers", "weak_triggers", "dependencies", "conflicts")
 
 
 def parse_frontmatter(text):
